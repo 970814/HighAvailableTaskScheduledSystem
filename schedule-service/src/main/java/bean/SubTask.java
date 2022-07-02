@@ -1,10 +1,13 @@
 package bean;
 
+import lombok.AllArgsConstructor;
 import lombok.Data;
 
 // 子任务
 @Data
+@AllArgsConstructor
 public class SubTask {
+    String taskPid;       //  -- 父任务id
     String subTaskId;    // 子任务id，通常是.job文件的名称
     int activationValue; //激活值
     int startThreshold; //启动阈值

@@ -1,5 +1,7 @@
 package bean;
 
+import com.fasterxml.jackson.annotation.JsonAlias;
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 
@@ -7,8 +9,8 @@ import lombok.Data;
 @Data
 @AllArgsConstructor
 public class Edge {
+    @JsonAlias(value = "s")
     String startId;
+    @JsonAlias(value = "e")
     String endId;
-
-
 }
