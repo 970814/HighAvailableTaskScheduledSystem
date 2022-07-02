@@ -2,4 +2,5 @@
 
 **架构图v0.2**
 
+![架构图](ArchitectureDiagramimage.png)
 
