@@ -6,17 +6,14 @@ import bean.SubTask;
 import bean.TaskDAG;
 import com.alibaba.druid.util.HexBin;
 import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import db.DruidUtils;
-import org.apache.commons.dbutils.QueryRunner;
+import db.TaskDbUtil;
 
 import java.security.SecureRandom;
-import java.sql.Connection;
 import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.List;
 
-public class Demo {
+public class DemoTaskToDb {
 
     public static void main(String[] args) throws SQLException, JsonProcessingException {
 //        假设zip包已经解析完成，因此可得到如下数据，然后存入数据库
@@ -35,9 +32,7 @@ public class Demo {
         taskDeps.add(new Edge("D", "E"));
 
         TaskDAG taskDAG = new TaskDAG(subTaskIds, taskDeps);// 构建DAG对象
-//      定时任务
-        ScheduleTask scheduleTask = new ScheduleTask(taskId, 60 * 1000L,
-                taskDAG, false, 0, 0);
+
 //        子任务列表
         SubTask A = new SubTask(taskId, "A", 0, 0, 0, "echo A");
         SubTask B = new SubTask(taskId, "B", 0, 0, 0, "echo B");
@@ -51,26 +46,14 @@ public class Demo {
         subTasks.add(D);
         subTasks.add(E);
 
-        writeTaskToDb(scheduleTask, subTasks);
+//      定时任务
+        ScheduleTask scheduleTask = new ScheduleTask(taskId, 60 * 1000L,
+                taskDAG, false, 0, 0, subTasks);
 
-
-
+        TaskDbUtil.writeTaskToDb(scheduleTask);
     }
 
-    private static void writeTaskToDb(ScheduleTask st, List<SubTask> subTasks) throws SQLException, JsonProcessingException {
-        QueryRunner queryRunner = new QueryRunner(DruidUtils.getDataSource());
-        ObjectMapper objectMapper = new ObjectMapper();
-        String dagStr = objectMapper.writeValueAsString(st.getTaskDAG());
-        int rows = queryRunner.update("insert into schedule_task(task_id,period,task_dag,enabled,status,max_iter_cnt) values(?,?,?,?,?,?)",
-                st.getTaskId(), st.getPeriod(), dagStr, st.isEnabled(), st.getStatus(), st.getMaxIterCnt());
-        if (rows != 1) throw new RuntimeException("写入数据失败: rows=" + rows);
-        for (SubTask t : subTasks) {
-            rows = queryRunner.update("insert into sub_task(task_pid,sub_task_id,activation_value,start_threshold,status,command) values (?,?,?,?,?,?)",
-                    t.getTaskPid(), t.getSubTaskId(), t.getActivationValue(), t.getStartThreshold(),  t.getStatus(), t.getCommand());
-            if (rows != 1) throw new RuntimeException("写入数据失败: rows=" + rows);
-        }
 
-    }
 
 
     private static String getRndHex(int n) {

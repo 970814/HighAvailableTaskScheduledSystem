@@ -10,7 +10,7 @@ import java.sql.SQLException;
 import java.util.Properties;
 
 // 德鲁伊连接池
-public class DruidUtils {
+public class DruidUtil {
     private static DataSource dataSource;
     static {
         try {
