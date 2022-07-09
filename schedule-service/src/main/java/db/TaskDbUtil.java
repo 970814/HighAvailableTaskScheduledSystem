@@ -34,7 +34,8 @@ public class TaskDbUtil {
     //    查询出属于启用状态的定时任务
     public static List<ScheduleTask> selectEnabledScheduleTask() throws SQLException, IOException {
         QueryRunner queryRunner = new QueryRunner(DruidUtil.getDataSource());
-        List<Map<String, Object>> mapList = queryRunner.query("select task_id,period,task_dag,enabled,status,max_iter_cnt from schedule_task where enabled = true",
+        List<Map<String, Object>> mapList = queryRunner.query("select task_id,period,task_dag,enabled,status,max_iter_cnt from schedule_task " +
+                        "where enabled = true",
                 new MapListHandler());
         List<ScheduleTask> scheduleTasks = new ArrayList<>();
         ObjectMapper om = new ObjectMapper();
@@ -47,10 +48,8 @@ public class TaskDbUtil {
             Integer max_iter_cnt = (Integer) map.get("max_iter_cnt");
             scheduleTasks.add(new ScheduleTask(task_id, period, om.readValue(task_dag, TaskDAG.class), enabled, status, max_iter_cnt, null));
         }
-
         for (ScheduleTask scheduleTask : scheduleTasks)
             scheduleTask.setSubTasks(selectSubTasks(scheduleTask.getTaskId()));
-
         return scheduleTasks;
     }
 
@@ -61,7 +60,6 @@ public class TaskDbUtil {
                                 + taskPid + "'",
                         new MapListHandler());
         List<SubTask> subTasks = new ArrayList<>();
-
         for (Map<String, Object> map : mapList) {
             String sub_task_id = (String) map.get("sub_task_id");
             int activation_value = (int) map.get("activation_value");

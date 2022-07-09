@@ -9,7 +9,7 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 @NoArgsConstructor
 public class SubTask {
-    String taskPid;       //  -- 父任务id
+    String taskPid;       //   父任务id
     String subTaskId;    // 子任务id，通常是.job文件的名称
     int activationValue; //激活值
     int startThreshold; //启动阈值
@@ -21,7 +21,7 @@ public class SubTask {
     public void run() {
 //        这里需要将子任务传输到 任务执行节点 进行执行
 //        先进行简单模拟
-
+        System.out.println(command);
 
     }
 }

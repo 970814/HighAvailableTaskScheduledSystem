@@ -47,7 +47,7 @@ public class ScheduleTask {
             List<SubTask> readyTask = subTasks.stream()
                     .filter(subTask -> subTask.getStatus() == 1) // 检索出状态为等待
                     .filter(subTask -> subTask.getActivationValue() == subTask.getStartThreshold()) //且激活值等与启动阈值
-                    .collect(Collectors.toList()); // 的子任务}
+                    .collect(Collectors.toList()); // 的子任务
             ExecutorService executorService = Executors.newFixedThreadPool(subTasks.size());// 任务执行资源
             CountDownLatch latch = new CountDownLatch(readyTask.size()); //需要等待两个任务执行完成才可解除阻塞
             for (SubTask subTask : readyTask)
