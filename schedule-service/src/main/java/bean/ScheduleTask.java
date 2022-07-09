@@ -1,12 +1,13 @@
 package bean;
 
 import db.TaskDbUtil;
-import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
-import lombok.SneakyThrows;
 
+import java.util.Collection;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -14,11 +15,11 @@ import java.util.stream.Collectors;
 
 // 定时任务
 @Data
-@AllArgsConstructor
 @NoArgsConstructor
 public class ScheduleTask {
 //    该任务的唯一标识，使用zip包的SHA256值，zip包将会被重命名为taskId值。因此路径不用单独定义
     String taskId;
+    String name;       //任务名称，用于前端展示，可以重名，可修改
     Long period;      //执行周期
     TaskDAG taskDAG; // 子任务间的执行依赖关系
     boolean enabled; // 任务总开关
@@ -26,14 +27,27 @@ public class ScheduleTask {
     //最大执行次数，当任务被启动后，执行达到maxIterCnt次后，将会自动关闭。
     //如果需要执行一次性任务，该值可设置为1
     Integer maxIterCnt;
-//    String scheduleNodeId; // 该任务执行所在的指定调度节点Id
+//    String scheduleNodeId; // 该任务执行所在的调度节点Id
 
-    List<SubTask> subTasks; // 子任务对象列表
+    Map<String,SubTask> subTaskMap; // 子任务对象列表 <id,task>
 
-//    启动定时任务
+    public ScheduleTask(String taskId, String name, Long period, TaskDAG taskDAG, boolean enabled, int status, Integer maxIterCnt, List<SubTask> subTasks) {
+        this.taskId = taskId;
+        this.name = name;
+        this.period = period;
+        this.taskDAG = taskDAG;
+        this.enabled = enabled;
+        this.status = status;
+        this.maxIterCnt = maxIterCnt;
+        subTaskMap = new HashMap<>();
+        for (SubTask subTask : subTasks)
+            subTaskMap.put(subTask.getSubTaskName(), subTask);
+    }
+
+    //    启动定时任务
     public void start() {
         status = 2; // 设置为运行状态
-        for (SubTask subTask : subTasks) {
+        for (SubTask subTask : subTaskMap.values()) {
             subTask.status = 1; // 子任务设置为等待状态
             subTask.activationValue = 0;
         }
@@ -43,6 +57,7 @@ public class ScheduleTask {
     //    执行DAG定时任务
     public void run()  {
         start();
+        Collection<SubTask> subTasks = subTaskMap.values();
         while (subTasks.stream().anyMatch(subTask -> subTask.getStatus() != 0)) { // 只要还有任何一个子任务未完成
             List<SubTask> readyTask = subTasks.stream()
                     .filter(subTask -> subTask.getStatus() == 1) // 检索出状态为等待

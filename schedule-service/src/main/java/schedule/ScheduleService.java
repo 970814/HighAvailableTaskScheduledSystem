@@ -17,6 +17,7 @@ public class ScheduleService {
     final ScheduledExecutorService scheduledExecutorService;
     Map<String, ScheduleTask> taskMap;// <taskId，ScheduleTask>
     Map<String, ScheduledFuture<?>> scheduledFutureMap; // 用于关闭任务
+
     public ScheduleService() {
 //        一个是轮询数据库的线程
         scheduledExecutorService = Executors.newScheduledThreadPool(corePoolSize + 1);
@@ -86,9 +87,9 @@ public class ScheduleService {
     }
 
     private void taskStateTransition(ScheduleTask oldTask, ScheduleTask newTask) {
-        for (SubTask subTask : newTask.getSubTasks()) {
-
-        }
+//        for (SubTask subTask : newTask.getSubTasks()) {
+//
+//        }
     }
 
     //    启动定时任务

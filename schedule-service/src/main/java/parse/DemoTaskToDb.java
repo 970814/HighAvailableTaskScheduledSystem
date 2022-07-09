@@ -47,7 +47,7 @@ public class DemoTaskToDb {
         subTasks.add(E);
 
 //      定时任务
-        ScheduleTask scheduleTask = new ScheduleTask(taskId, 60 * 1000L,
+        ScheduleTask scheduleTask = new ScheduleTask(taskId,"我的第一个定时任务", 60 * 1000L,
                 taskDAG, false, 0, 0, subTasks);
 
         TaskDbUtil.writeTaskToDb(scheduleTask);

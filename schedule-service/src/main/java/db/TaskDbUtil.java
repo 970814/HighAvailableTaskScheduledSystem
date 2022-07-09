@@ -11,22 +11,23 @@ import org.apache.commons.dbutils.handlers.MapListHandler;
 import java.io.IOException;
 import java.sql.SQLException;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 
 public class TaskDbUtil {
 //    将定时任务写入数据库
     public static void writeTaskToDb(ScheduleTask st) throws SQLException, JsonProcessingException {
-        List<SubTask> subTasks = st.getSubTasks();
+        Collection<SubTask> subTasks = st.getSubTaskMap().values();
         QueryRunner queryRunner = new QueryRunner(DruidUtil.getDataSource());
         ObjectMapper objectMapper = new ObjectMapper();
         String dagStr = objectMapper.writeValueAsString(st.getTaskDAG());
-        int rows = queryRunner.update("insert into schedule_task(task_id,period,task_dag,enabled,status,max_iter_cnt) values(?,?,?,?,?,?)",
-                st.getTaskId(), st.getPeriod(), dagStr, st.isEnabled(), st.getStatus(), st.getMaxIterCnt());
+        int rows = queryRunner.update("insert into schedule_task(task_id,name,period,task_dag,enabled,status,max_iter_cnt) values(?,?,?,?,?,?,?)",
+                st.getTaskId(), st.getName(), st.getPeriod(), dagStr, st.isEnabled(), st.getStatus(), st.getMaxIterCnt());
         if (rows != 1) throw new RuntimeException("写入数据失败: rows=" + rows);
         for (SubTask t : subTasks) {
             rows = queryRunner.update("insert into sub_task(task_pid,sub_task_id,activation_value,start_threshold,status,command) values (?,?,?,?,?,?)",
-                    t.getTaskPid(), t.getSubTaskId(), t.getActivationValue(), t.getStartThreshold(),  t.getStatus(), t.getCommand());
+                    t.getTaskPid(), t.getSubTaskName(), t.getActivationValue(), t.getStartThreshold(),  t.getStatus(), t.getCommand());
             if (rows != 1) throw new RuntimeException("写入数据失败: rows=" + rows);
         }
     }
@@ -34,22 +35,24 @@ public class TaskDbUtil {
     //    查询出属于启用状态的定时任务
     public static List<ScheduleTask> selectEnabledScheduleTask() throws SQLException, IOException {
         QueryRunner queryRunner = new QueryRunner(DruidUtil.getDataSource());
-        List<Map<String, Object>> mapList = queryRunner.query("select task_id,period,task_dag,enabled,status,max_iter_cnt from schedule_task " +
+        List<Map<String, Object>> mapList = queryRunner.query("select task_id,name,period,task_dag,enabled,status,max_iter_cnt from schedule_task " +
                         "where enabled = true",
                 new MapListHandler());
         List<ScheduleTask> scheduleTasks = new ArrayList<>();
         ObjectMapper om = new ObjectMapper();
         for (Map<String, Object> map : mapList) {
             String task_id = (String) map.get("task_id");
+            String name = (String) map.get("name");
             Long period = Long.valueOf((String) map.get("period"));
             String task_dag = (String) map.get("task_dag");
             boolean enabled = (Boolean) map.get("enabled");
             int status = (Integer) map.get("status");
             Integer max_iter_cnt = (Integer) map.get("max_iter_cnt");
-            scheduleTasks.add(new ScheduleTask(task_id, period, om.readValue(task_dag, TaskDAG.class), enabled, status, max_iter_cnt, null));
+            scheduleTasks.add(new ScheduleTask(task_id, name, period,
+                    om.readValue(task_dag, TaskDAG.class),
+                    enabled, status, max_iter_cnt,
+                    selectSubTasks(task_id)));
         }
-        for (ScheduleTask scheduleTask : scheduleTasks)
-            scheduleTask.setSubTasks(selectSubTasks(scheduleTask.getTaskId()));
         return scheduleTasks;
     }
 
@@ -83,11 +86,11 @@ public class TaskDbUtil {
 
     public static void main(String[] args) throws SQLException, IOException {
 
-//        enableScheduleTask("F562B3474F4F419BBAC50B65A19E41753ED301138009F2C318E044DBAE1B3D64", true, 60 * 1000L, 0);
+        enableScheduleTask("133A9BA04B90DDE5F8B4E67A26E527DD83A0B09795D20C9FC96AC4F80FE115D2", true, 60 * 1000L, 0);
 
         List<ScheduleTask> scheduleTasks = selectEnabledScheduleTask();
         for (ScheduleTask scheduleTask : scheduleTasks)
-            for (SubTask subTask : scheduleTask.getSubTasks())
+            for (SubTask subTask : scheduleTask.getSubTaskMap().values())
                 System.out.println(subTask);
         System.out.println(scheduleTasks);
 
