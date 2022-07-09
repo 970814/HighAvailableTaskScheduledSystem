@@ -3,14 +3,15 @@ package bean;
 import db.TaskDbUtil;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+import lombok.SneakyThrows;
+import lombok.var;
 
-import java.util.Collection;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 
 // 定时任务
@@ -29,7 +30,7 @@ public class ScheduleTask {
     Integer maxIterCnt;
 //    String scheduleNodeId; // 该任务执行所在的调度节点Id
 
-    Map<String,SubTask> subTaskMap; // 子任务对象列表 <id,task>
+    Map<String, SubTask> subTaskMap; // 子任务对象列表 <name,task>
 
     public ScheduleTask(String taskId, String name, Long period, TaskDAG taskDAG, boolean enabled, int status, Integer maxIterCnt, List<SubTask> subTasks) {
         this.taskId = taskId;
@@ -44,43 +45,53 @@ public class ScheduleTask {
             subTaskMap.put(subTask.getSubTaskName(), subTask);
     }
 
-    //    启动定时任务
+    //    (无锁)启动定时任务
     public void start() {
-        status = 2; // 设置为运行状态
-        for (SubTask subTask : subTaskMap.values()) {
+        //需要先更新数据库状态，再更新内存状态
+        TaskDbUtil.updateTaskToStartState(this);
+        for (var subTask : subTaskMap.values()) {
             subTask.status = 1; // 子任务设置为等待状态
-            subTask.activationValue = 0;
+            subTask.activationValue = 0; //重置激活值
         }
-        TaskDbUtil.updateTaskStatus(this);//定时任务状态设置为运行，同步到数据库
+        status = 2; // 设置为运行状态
     }
 
+    CountDownLatch latch;
+
     //    执行DAG定时任务
+    @SneakyThrows
     public void run()  {
         start();
-        Collection<SubTask> subTasks = subTaskMap.values();
+        var subTasks = subTaskMap.values();
         while (subTasks.stream().anyMatch(subTask -> subTask.getStatus() != 0)) { // 只要还有任何一个子任务未完成
-            List<SubTask> readyTask = subTasks.stream()
-                    .filter(subTask -> subTask.getStatus() == 1) // 检索出状态为等待
+            latch = new CountDownLatch(1);
+            subTasks.stream()
+                    .filter(subTask -> subTask.getStatus() == 1)                  // 检索出状态为等待
                     .filter(subTask -> subTask.getActivationValue() == subTask.getStartThreshold()) //且激活值等与启动阈值
-                    .collect(Collectors.toList()); // 的子任务
-            ExecutorService executorService = Executors.newFixedThreadPool(subTasks.size());// 任务执行资源
-            CountDownLatch latch = new CountDownLatch(readyTask.size()); //需要等待两个任务执行完成才可解除阻塞
-            for (SubTask subTask : readyTask)
-                subTask.run();
-
-            try {
-                latch.await();
-            } catch (InterruptedException e) {
-                throw new RuntimeException(e);
-            }
+                    .collect(Collectors.toList())                       // 的就绪子任务
+                    .forEach(SubTask::run);                             //异步执行所有子任务
+            latch.await();                                              //阻塞,等待驱动 (暂不处理中断异常)
         }
-        finish();
+        finish(); //至此，所有子任务执行完成
     }
 
 //    定时任务执行结束
     private void finish() {
+        TaskDbUtil.updateTaskToFinishState(this);//定时任务状态设置为结束
         status = 0;
-        TaskDbUtil.updateTaskStatus(this);//定时任务状态设置为运行，同步到数据库
+    }
+
+    //    得到某子任务驱动的子任务列表
+    public List<SubTask> getSubTasksDrivenBy(String subTaskName) {
+        return getTaskDAG()
+                .getSubTaskNamesDrivenBy(subTaskName)
+                .stream()
+                .map(taskName -> subTaskMap.get(taskName))
+                .collect(Collectors.toList());
+    }
+
+    public boolean isRunning() {
+        return status == 2;
     }
 }
 

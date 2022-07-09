@@ -3,6 +3,7 @@ package schedule;
 import bean.ScheduleTask;
 import bean.SubTask;
 import db.TaskDbUtil;
+import lombok.SneakyThrows;
 import util.Utils;
 
 import java.io.IOException;
@@ -28,76 +29,67 @@ public class ScheduleService {
     }
 
     private void listenTaskStatus() {
-        //  每隔10s更新一次定时任务状态, 实现任务的启动、关闭、状态更新
+        //  每隔10s查库并更新任务状态, 实现任务的启动、关闭、以及任务状态的转换
         scheduledExecutorService
                 .scheduleAtFixedRate(this::loadTaskStatusFromDB,
                         1, 10, TimeUnit.SECONDS);
-
     }
 
-
-//    从数据库中载入任务状态
+    //    从数据库中载入任务状态
+    @SneakyThrows //暂不考虑sql异常
     private void loadTaskStatusFromDB() {
-        try {
-            List<ScheduleTask> scheduleTasks = TaskDbUtil.selectEnabledScheduleTask();
-            Map<String, ScheduleTask> newTaskMap = new HashMap<>();
-            for (ScheduleTask scheduleTask : scheduleTasks)
-                newTaskMap.put(scheduleTask.getTaskId(), scheduleTask);
+        List<ScheduleTask> scheduleTasks = TaskDbUtil.selectEnabledScheduleTask();
+        Map<String, ScheduleTask> newTaskMap = new HashMap<>();
+        for (ScheduleTask scheduleTask : scheduleTasks)
+            newTaskMap.put(scheduleTask.getTaskId(), scheduleTask);
 
-            update(taskMap, newTaskMap);//将数据库中的任务状态更新到内存
-
-        } catch (SQLException | IOException e) {//暂不考虑异常情况
-            throw new RuntimeException(e);
-        }
+        update(taskMap, newTaskMap);//将数据库中的任务状态更新到内存
     }
 
-    //将数据库中的任务状态更新到内存
+    //将数据库中的任务状态更新到内存，完成3件事情
     private void update(Map<String, ScheduleTask> oldTaskMap, Map<String, ScheduleTask> newTaskMap) {
         Set<String> oldTaskIds = oldTaskMap.keySet();
         Set<String> newTaskIds = newTaskMap.keySet();
 
-//        内存任务集合 减去 数据库任务集合 ---> 得到关闭的任务集合
-        Set<String> disabledTaskIds = Utils.difference(oldTaskIds, newTaskIds); //被关闭的任务
-        if (disabledTaskIds.size() > 0) { // 关闭任务
-            long start = System.currentTimeMillis();
-            System.out.println("需要关闭的任务有: " + disabledTaskIds);
-            for (String disabledTaskId : disabledTaskIds) {
-                scheduledFutureMap.remove(disabledTaskId).cancel(false);//会等到执行完成再从线程池中删除&关闭任务
-                taskMap.remove(disabledTaskId);
-            }
-            System.out.println("任务已成功关闭, 耗时：" + (System.currentTimeMillis() - start) + "ms");
-        }
-//        数据库任务集合 减去 内存任务集合 ---> 得到启用的任务集合
-        Set<String> enabledTaskIds = Utils.difference(newTaskIds, oldTaskIds);//被启用的任务
-        if (enabledTaskIds.size() > 0) { // 启用任务
-            for (String enabledTaskId : enabledTaskIds) {
-                ScheduleTask scheduleTask = newTaskMap.get(enabledTaskId);
-                startScheduleTask(scheduleTask);
-            }
-        }
+//        1.内存任务集合 减去 数据库任务集合 ---> 得到关闭的任务集合
+        Utils.difference(oldTaskIds, newTaskIds)   //被关闭的任务
+                .forEach(disabledTaskId -> {        //逐个关闭
+                    scheduledFutureMap.remove(disabledTaskId).cancel(false);//会等到执行完成再从线程池中删除&关闭任务
+                    taskMap.remove(disabledTaskId);
+                });
 
-        //交集部分，得到任务运行状态的变化   运行 -> 结束/失败
+//        2.数据库任务集合 减去 内存任务集合 ---> 得到启用的任务集合
+        Utils.difference(newTaskIds, oldTaskIds)        //被启用的任务
+                .forEach(enabledTaskId -> startScheduleTask(newTaskMap.get(enabledTaskId))); //逐个启动
+
+        //3.交集部分，得到任务运行状态的变化   运行 -> 结束/失败
         //将内存中的任务运行状态和数据库中状态进行对比，以驱动DAG流程的执行
-        Set<String> intersectionTaskIds = Utils.intersection(oldTaskIds, newTaskIds);
-        for (String taskId : intersectionTaskIds) {//对每一个定时任务进行一个驱动
-            ScheduleTask oldTask = oldTaskMap.get(taskId);
-            ScheduleTask newTask = newTaskMap.get(taskId);
-            taskStateTransition(oldTask, newTask);//任务状态的一个转换
-        }
+        Utils.intersection(oldTaskIds, newTaskIds)            //逐个驱动
+                .stream().filter(taskId -> oldTaskMap.get(taskId).isRunning())
+                .forEach(taskId -> taskStateTransition(oldTaskMap.get(taskId), newTaskMap.get(taskId)));//任务状态转换，用于驱动DAG流程执行
     }
 
     private void taskStateTransition(ScheduleTask oldTask, ScheduleTask newTask) {
-//        for (SubTask subTask : newTask.getSubTasks()) {
-//
-//        }
+        for (String taskId : oldTask.getSubTaskMap().keySet()) {
+            SubTask oldSubTask = oldTask.getSubTaskMap().get(taskId);
+            SubTask newSubTask = newTask.getSubTaskMap().get(taskId);
+            if (!oldSubTask.isFinish() && oldSubTask.getStatus() != newSubTask.getStatus()) { //只判断未完成 且 状态发生了变化 任务
+                oldSubTask.setStatus(newSubTask.getStatus());
+                if (newSubTask.getStatus() == 0) { //其他的状态变化无需关心，只需要关心任务  运行->结束 的变化
+                    //某子任务驱动的所有子任务激活值加一
+                    oldTask.getSubTasksDrivenBy(oldSubTask.getSubTaskName())
+                            .forEach(subTask -> subTask.setActivationValue(subTask.getActivationValue() + 1));
+                    oldTask.getLatch().countDown();//驱动DAG流程的执行,唤醒阻塞
+                }
+            }
+        }
     }
 
     //    启动定时任务
     private void startScheduleTask(ScheduleTask scheduleTask) {
-
         //将任务放入线程池
         ScheduledFuture<?> scheduledFuture = scheduledExecutorService
-                .scheduleAtFixedRate(scheduleTask::run, 1, scheduleTask.getPeriod(), TimeUnit.MILLISECONDS);
+                .scheduleAtFixedRate(scheduleTask::run, 8, scheduleTask.getPeriod(), TimeUnit.MILLISECONDS);
         scheduledFutureMap.put(scheduleTask.getTaskId(), scheduledFuture); //用于关闭任务
         taskMap.put(scheduleTask.getTaskId(), scheduleTask);
     }

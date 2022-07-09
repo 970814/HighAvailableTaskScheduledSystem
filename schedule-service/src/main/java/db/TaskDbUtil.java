@@ -87,6 +87,8 @@ public class TaskDbUtil {
     public static void main(String[] args) throws SQLException, IOException {
 
         enableScheduleTask("133A9BA04B90DDE5F8B4E67A26E527DD83A0B09795D20C9FC96AC4F80FE115D2", true, 60 * 1000L, 0);
+//      每当启动一个任务时，需要把其所有的子任务状态设置为等待。
+
 
         List<ScheduleTask> scheduleTasks = selectEnabledScheduleTask();
         for (ScheduleTask scheduleTask : scheduleTasks)
@@ -98,5 +100,23 @@ public class TaskDbUtil {
 
     public static void updateTaskStatus(ScheduleTask scheduleTask) {
 
+    }
+
+
+
+    //更新运行状态: 运行 -> 结束、指向的子任务激活值加一
+    public static void finishSubTask(String taskPid, String subTaskName) {
+
+    }
+
+    //更新运行状态
+    public static void updateSubTaskStatus(String taskPid, String subTaskName, int status) {
+    }
+
+
+    public static void updateTaskToStartState(ScheduleTask scheduleTask) {
+    }
+
+    public static void updateTaskToFinishState(ScheduleTask scheduleTask) {
     }
 }
