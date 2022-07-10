@@ -42,7 +42,7 @@ public class ScheduleTask {
     }
 
 
-    private ExecutionRecord executionRecord ;
+    private ExecutionRecord executionRecord;
 
 
     //    (无锁)启动定时任务

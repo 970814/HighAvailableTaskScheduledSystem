@@ -47,7 +47,15 @@ select * from schedule_task;
 select * from sub_task;
 select * from execution_record;
 select sub_task_id, start_datetime, end_datetime, cost_time, result, tx_id, task_id
-from execution_record order by tx_id,task_id,sub_task_id;
+from execution_record
+where task_id='523003BB4B9D9E3CF2877B785E18B6E18DD6A60E98636FDDEAD75A895F049204';
+
+
+select sub_task_id, start_datetime, end_datetime, cost_time, result, tx_id, task_id
+from execution_record
+where task_id='523003BB4B9D9E3CF2877B785E18B6E18DD6A60E98636FDDEAD75A895F049204'
+and sub_task_id is null;
+
 
 
 
@@ -71,3 +79,18 @@ delete  from sub_task where task_pid='A35D9BAD4367826BDFD7C3001D8ACDA8102A0373E7
 # truncate table schedule_task;
 # truncate table sub_task;
 # truncate table execution_record;
+
+
+
+
+select sub_task_id, start_datetime, end_datetime, cost_time, result, tx_id, task_id from execution_record
+where
+        tx_id in  (select tx_id
+                   from execution_record where sub_task_id is null
+                   order by start_datetime desc
+                   limit 2)
+  and
+        task_id in  (select task_id
+                     from execution_record where sub_task_id is null
+                     order by start_datetime desc)
+;

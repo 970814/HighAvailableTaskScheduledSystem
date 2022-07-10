@@ -107,9 +107,4 @@ public class ScheduleService {
         taskMap.put(scheduleTask.getTaskId(), scheduleTask);
     }
 
-    public static void main(String[] args) {
-        new ScheduleService();
-    }
-
-
 }
