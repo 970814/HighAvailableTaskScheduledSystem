@@ -40,10 +40,8 @@ public class ScheduleService {
     //    从数据库中载入任务状态
     @SneakyThrows //暂不考虑sql异常
     private void loadTaskStatusFromDB() {
-        List<ScheduleTask> scheduleTasks = TaskDbUtil.selectEnabledScheduleTask();
         Map<String, ScheduleTask> newTaskMap = new HashMap<>();
-        for (ScheduleTask scheduleTask : scheduleTasks)
-            newTaskMap.put(scheduleTask.getTaskId(), scheduleTask);
+        TaskDbUtil.selectEnabledScheduleTask().forEach(scheduleTask -> newTaskMap.put(scheduleTask.getTaskId(), scheduleTask));
 
         update(taskMap, newTaskMap);//将数据库中的任务状态更新到内存
     }

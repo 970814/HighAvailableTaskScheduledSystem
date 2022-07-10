@@ -4,6 +4,7 @@ import db.TaskDbUtil;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+import util.Utils;
 
 import java.util.Random;
 
@@ -19,9 +20,21 @@ public class SubTask {
     int status; // 运行状态     结束0 等待1 运行2
     String command;//子任务的命令
 
+    public SubTask(String taskPid, String subTaskName, int activationValue, int startThreshold, int status, String command) {
+        this.taskPid = taskPid;
+        this.subTaskName = subTaskName;
+        this.activationValue = activationValue;
+        this.startThreshold = startThreshold;
+        this.status = status;
+        this.command = command;
+    }
 
+        ExecutionRecord executionRecord;
     //    异步执行子任务
-    public void run() {
+    public void run(String txId) {
+//        写入运行记录
+        TaskDbUtil.startExecutionRecord(executionRecord = new ExecutionRecord(txId, taskPid, subTaskName, System.currentTimeMillis(), "运行"));
+
 //        这里需要将子任务传输到 任务执行节点 进行执行
 //        先进行简单模拟
 
@@ -40,6 +53,7 @@ public class SubTask {
                 Thread.sleep(100);
                 //更新运行状态: 运行 -> 结束、指向的子任务激活值加一, 该事件可被轮询线程捕获
                 TaskDbUtil.finishSubTask(taskPid, subTaskName);
+                TaskDbUtil.endExecutionRecord(executionRecord.finish(System.currentTimeMillis()));
             } catch (InterruptedException e) {
                 e.printStackTrace();
             }

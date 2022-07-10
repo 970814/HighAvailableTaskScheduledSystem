@@ -6,6 +6,7 @@ import bean.SubTask;
 import bean.TaskDAG;
 import com.alibaba.druid.util.HexBin;
 import db.TaskDbUtil;
+import util.Utils;
 
 import java.security.SecureRandom;
 import java.util.ArrayList;
@@ -14,17 +15,11 @@ import java.util.List;
 public class DemoTaskToDb {
 
 
-    //    生成随机任务Id
-    private static String getRndHex(int n) {
-        SecureRandom secRnd = new SecureRandom();
-        byte[] sha256 = new byte[n];
-        secRnd.nextBytes(sha256);
-        return HexBin.encode(sha256);
-    }
+
 
     public static String addDemoTask() {
 //        假设zip包已经解析完成，因此可得到如下数据，然后存入数据库
-        String taskId = getRndHex(32);
+        String taskId = Utils.generateRandomTaskId();
         List<String> subTaskIds = new ArrayList<>();//子任务列表
         subTaskIds.add("A");   //       A  B       使用此依赖关系为例子
         subTaskIds.add("B");   //       |/ |
@@ -81,8 +76,8 @@ public class DemoTaskToDb {
     public static void main(String[] args) {
         String taskId = "523003BB4B9D9E3CF2877B785E18B6E18DD6A60E98636FDDEAD75A895F049204";
 //        String taskId = addDemoTask();
-//        enabledScheduleTaskDemo(taskId);
-        disabledScheduleTaskDemo(taskId);
+        enabledScheduleTaskDemo(taskId);
+//        disabledScheduleTaskDemo(taskId);
         showEnabledScheduleTask();
 //        TaskDbUtil.finishSubTask("7971150C73710F64FD01989B7403CC84EB278E95EEA18554CD304B502473DC79", "B");
 //        showEnabledScheduleTask();

@@ -1,5 +1,6 @@
 package db;
 
+import bean.ExecutionRecord;
 import bean.ScheduleTask;
 import bean.SubTask;
 import bean.TaskDAG;
@@ -10,10 +11,8 @@ import org.apache.commons.dbutils.QueryRunner;
 import org.apache.commons.dbutils.handlers.MapListHandler;
 import org.apache.commons.dbutils.handlers.ScalarHandler;
 
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.List;
-import java.util.Map;
+import java.sql.SQLException;
+import java.util.*;
 
 @SuppressWarnings("DuplicatedCode")
 public class TaskDbUtil {
@@ -169,4 +168,40 @@ public class TaskDbUtil {
                 "where task_id = ?", status, taskId);
         if (rows != 1) throw new RuntimeException("更新记录" + rows + "," + taskId);
     }
+
+
+
+//    写入执行记录
+    @SneakyThrows
+    public static void startExecutionRecord(ExecutionRecord er) {
+        QueryRunner queryRunner = new QueryRunner(DruidUtil.getDataSource());
+        int rows = queryRunner.update("insert into execution_record(tx_id,task_id,sub_task_id,start_datetime,end_datetime,result)" +
+                        " values(?,?,?,?,?,?)",
+                er.getTxId(), er.getTaskId(), er.getSubTaskId(), er.getStartDatetime(), er.getEndDatetime(),
+                er.getResult());
+        if (rows != 1) throw new RuntimeException("写入数据失败: rows=" + rows);
+    }
+
+    public static void endExecutionRecord(ExecutionRecord er) {
+        QueryRunner queryRunner = new QueryRunner(DruidUtil.getDataSource());
+
+        Object[] params = new Object[]{er.getEndDatetime(), er.getResult(), er.getCostTime(), er.getTxId(), er.getTaskId(), er.getSubTaskId()};
+
+        String endSql = "= ?";//子任务判断
+        if (er.getSubTaskId() == null) {
+            endSql = "is null";//主任务id判断
+            params = Arrays.copyOfRange(params, 0, params.length - 1);
+        }
+        int rows = 0;
+        try {
+            rows = queryRunner.update("update execution_record set end_datetime = ?, result = ?, cost_time = ? " +
+                    "where tx_id = ? and task_id = ? and sub_task_id " + endSql, params);
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+        if (rows != 1) throw new RuntimeException("更新数据失败: rows=" + rows);
+    }
 }
+/*
+
+ */

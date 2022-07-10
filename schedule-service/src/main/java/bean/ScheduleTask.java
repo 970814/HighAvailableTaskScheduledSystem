@@ -5,6 +5,7 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 import lombok.SneakyThrows;
 import lombok.var;
+import util.Utils;
 
 import java.util.*;
 import java.util.concurrent.CountDownLatch;
@@ -14,7 +15,7 @@ import java.util.stream.Collectors;
 @Data
 @NoArgsConstructor
 public class ScheduleTask {
-//    该任务的唯一标识，使用zip包的SHA256值，zip包将会被重命名为taskId值。因此路径不用单独定义
+    //    该任务的唯一标识，使用zip包的SHA256值，zip包将会被重命名为taskId值。因此路径不用单独定义
     String taskId;
     String name;       //任务名称，用于前端展示，可以重名，可修改
     Long period;      //执行周期
@@ -40,8 +41,15 @@ public class ScheduleTask {
         subTasks.forEach(subTask -> subTaskMap.put(subTask.getSubTaskName(), subTask));
     }
 
+
+    private ExecutionRecord executionRecord ;
+
+
     //    (无锁)启动定时任务
     public void start() {
+//        写入运行记录
+        TaskDbUtil.startExecutionRecord(executionRecord = new ExecutionRecord(Utils.generateRandomTransactionId(), taskId, null,
+                System.currentTimeMillis(), "运行"));
         //需要先更新数据库状态，再更新内存状态
         TaskDbUtil.updateTaskToStartState(this);
         for (var subTask : subTaskMap.values()) {
@@ -53,27 +61,28 @@ public class ScheduleTask {
 
     CountDownLatch latch;
 
-    //    执行DAG定时任务
+
     @SneakyThrows
-    public void run()  {
+    public void run0() {
         start();
         System.out.println("---------" + name + "(" + taskId.replaceFirst("^(...).*(...)$", "$1...$2") + ")开始执行------------------------");
         var subTasks = subTaskMap.values();
         while (subTasks.stream().anyMatch(subTask -> subTask.getStatus() != 0)) { // 只要还有任何一个子任务未完成
             latch = new CountDownLatch(1);
             subTasks.stream()
-                    .filter(subTask -> subTask.getStatus() == 1)                  // 检索出状态为等待
+                    .filter(subTask -> subTask.getStatus() == 1)                                    // 检索出状态为等待
                     .filter(subTask -> subTask.getActivationValue() == subTask.getStartThreshold()) //且激活值等与启动阈值
-                    .collect(Collectors.toList())                       // 的就绪子任务
-                    .forEach(SubTask::run);                             //异步执行所有子任务
-            latch.await();                                              //阻塞,等待任务状态变化驱动 (暂不处理中断异常)
+                    .collect(Collectors.toList())                                                   // 的就绪子任务
+                    .forEach(subTask -> subTask.run(executionRecord.txId));                         //异步执行所有子任务
+            latch.await();                                                                          //阻塞,等待任务状态变化驱动 (暂不处理中断异常)
         }
-        System.out.println("---------" + name + "(" + taskId.replaceFirst("^(...).*(...)$", "$1...$2") + ")执行完成------------------------");
         finish(); //至此，所有子任务执行完成
+        System.out.println("---------" + name + "(" + taskId.replaceFirst("^(...).*(...)$", "$1...$2") + ")执行完成------------------------");
     }
 
     //    定时任务执行结束
     private void finish() {
+        TaskDbUtil.endExecutionRecord(executionRecord.finish(System.currentTimeMillis()));
         TaskDbUtil.updateTaskStatus(getTaskId(), status = 0); //定时任务状态设置为结束
     }
 
@@ -102,6 +111,18 @@ public class ScheduleTask {
                 ", enabled=" + enabled +
                 ", status=" + status +
                 '}';
+    }
+
+
+
+    //    执行DAG定时任务
+    public void run() {
+        try {
+            run0();
+        } catch (Exception e) {
+            e.printStackTrace();
+            System.exit(1);
+        }
     }
 }
 
