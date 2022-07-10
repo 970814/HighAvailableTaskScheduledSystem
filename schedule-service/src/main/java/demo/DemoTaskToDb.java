@@ -1,4 +1,4 @@
-package parse;
+package demo;
 
 import bean.Edge;
 import bean.ScheduleTask;
