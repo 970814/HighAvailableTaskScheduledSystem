@@ -5,17 +5,24 @@ import bean.ScheduleTask;
 import bean.SubTask;
 import bean.TaskDAG;
 import com.alibaba.druid.util.HexBin;
-import com.fasterxml.jackson.core.JsonProcessingException;
 import db.TaskDbUtil;
 
 import java.security.SecureRandom;
-import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.List;
 
 public class DemoTaskToDb {
 
-    public static void main(String[] args) throws SQLException, JsonProcessingException {
+
+    //    生成随机任务Id
+    private static String getRndHex(int n) {
+        SecureRandom secRnd = new SecureRandom();
+        byte[] sha256 = new byte[n];
+        secRnd.nextBytes(sha256);
+        return HexBin.encode(sha256);
+    }
+
+    public static String addDemoTask() {
 //        假设zip包已经解析完成，因此可得到如下数据，然后存入数据库
         String taskId = getRndHex(32);
         List<String> subTaskIds = new ArrayList<>();//子任务列表
@@ -47,21 +54,39 @@ public class DemoTaskToDb {
         subTasks.add(E);
 
 //      定时任务
-        ScheduleTask scheduleTask = new ScheduleTask(taskId,"我的第一个定时任务", 60 * 1000L,
+        ScheduleTask scheduleTask = new ScheduleTask(taskId, "我的第一个定时任务", 60 * 1000L,
                 taskDAG, false, 0, 0, subTasks);
 
         TaskDbUtil.writeTaskToDb(scheduleTask);
+        return taskId;
     }
 
 
 
 
-    private static String getRndHex(int n) {
-        SecureRandom secRnd = new SecureRandom();
-        byte[] sha256 = new byte[n];
-        secRnd.nextBytes(sha256);
-        return HexBin.encode(sha256);
+    public static void enabledScheduleTaskDemo(String taskId)  {
+        TaskDbUtil.enableScheduleTask(taskId, true, 60 * 1000L, 0);
     }
 
+
+    public static void showEnabledScheduleTask()  {
+//      每当启动一个任务时，需要把其所有的子任务状态设置为等待。
+        List<ScheduleTask> scheduleTasks = TaskDbUtil.selectEnabledScheduleTask();
+        for (ScheduleTask scheduleTask : scheduleTasks)
+            for (SubTask subTask : scheduleTask.getSubTaskMap().values())
+                System.out.println(subTask);
+        System.out.println(scheduleTasks);
+
+    }
+
+
+    public static void main(String[] args) {
+//        String taskId = addDemoTask();
+//        enabledScheduleTaskDemo(taskId);
+        showEnabledScheduleTask();
+        TaskDbUtil.finishSubTask("7971150C73710F64FD01989B7403CC84EB278E95EEA18554CD304B502473DC79", "B");
+        showEnabledScheduleTask();
+    }
 
 }
+

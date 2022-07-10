@@ -41,8 +41,7 @@ public class ScheduleTask {
         this.status = status;
         this.maxIterCnt = maxIterCnt;
         subTaskMap = new HashMap<>();
-        for (SubTask subTask : subTasks)
-            subTaskMap.put(subTask.getSubTaskName(), subTask);
+        subTasks.forEach(subTask -> subTaskMap.put(subTask.getSubTaskName(), subTask));
     }
 
     //    (无锁)启动定时任务

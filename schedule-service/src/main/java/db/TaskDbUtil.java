@@ -3,21 +3,23 @@ package db;
 import bean.ScheduleTask;
 import bean.SubTask;
 import bean.TaskDAG;
-import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import lombok.NonNull;
+import lombok.SneakyThrows;
 import org.apache.commons.dbutils.QueryRunner;
 import org.apache.commons.dbutils.handlers.MapListHandler;
+import org.apache.commons.dbutils.handlers.ScalarHandler;
 
-import java.io.IOException;
-import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 
+@SuppressWarnings("DuplicatedCode")
 public class TaskDbUtil {
 //    将定时任务写入数据库
-    public static void writeTaskToDb(ScheduleTask st) throws SQLException, JsonProcessingException {
+    @SneakyThrows
+    public static void writeTaskToDb(ScheduleTask st) {
         Collection<SubTask> subTasks = st.getSubTaskMap().values();
         QueryRunner queryRunner = new QueryRunner(DruidUtil.getDataSource());
         ObjectMapper objectMapper = new ObjectMapper();
@@ -33,7 +35,8 @@ public class TaskDbUtil {
     }
 
     //    查询出属于启用状态的定时任务
-    public static List<ScheduleTask> selectEnabledScheduleTask() throws SQLException, IOException {
+    @SneakyThrows
+    public static List<ScheduleTask> selectEnabledScheduleTask() {
         QueryRunner queryRunner = new QueryRunner(DruidUtil.getDataSource());
         List<Map<String, Object>> mapList = queryRunner.query("select task_id,name,period,task_dag,enabled,status,max_iter_cnt from schedule_task " +
                         "where enabled = true",
@@ -56,7 +59,8 @@ public class TaskDbUtil {
         return scheduleTasks;
     }
 
-    private static List<SubTask> selectSubTasks(String taskPid) throws SQLException {
+    @SneakyThrows
+    private static List<SubTask> selectSubTasks(String taskPid) {
         QueryRunner queryRunner = new QueryRunner(DruidUtil.getDataSource());
         List<Map<String, Object>> mapList = queryRunner
                 .query("select task_pid,sub_task_id,activation_value,start_threshold,status,command from sub_task where task_pid ='"
@@ -76,47 +80,94 @@ public class TaskDbUtil {
 
 
     //    启用或关闭一个定时任务。 如果是启用，那么需要配置执行周期和最大执行次数，0表示无限制。
-    public static void enableScheduleTask(String taskId, boolean enabled, Long period, Integer maxIterCnt) throws SQLException {
+    @SneakyThrows
+    public static void enableScheduleTask(String taskId, boolean enabled, Long period, Integer maxIterCnt) {
         QueryRunner queryRunner = new QueryRunner(DruidUtil.getDataSource());
         int rows = queryRunner
                 .update("update schedule_task set enabled = ?, period = ?, max_iter_cnt = ? where task_id = ?"
                         , enabled, period, maxIterCnt, taskId);
-        System.out.println("更新任务数量：" + rows);
-    }
-
-    public static void main(String[] args) throws SQLException, IOException {
-
-        enableScheduleTask("133A9BA04B90DDE5F8B4E67A26E527DD83A0B09795D20C9FC96AC4F80FE115D2", true, 60 * 1000L, 0);
-//      每当启动一个任务时，需要把其所有的子任务状态设置为等待。
-
-
-        List<ScheduleTask> scheduleTasks = selectEnabledScheduleTask();
-        for (ScheduleTask scheduleTask : scheduleTasks)
-            for (SubTask subTask : scheduleTask.getSubTaskMap().values())
-                System.out.println(subTask);
-        System.out.println(scheduleTasks);
-
-    }
-
-    public static void updateTaskStatus(ScheduleTask scheduleTask) {
-
+        if (rows != 1) throw new RuntimeException("更新记录" + rows + "," + taskId);
     }
 
 
+    @SneakyThrows
+    @NonNull
+    public static TaskDAG selectTaskDAGBy(String taskId) {
+        QueryRunner queryRunner = new QueryRunner(DruidUtil.getDataSource());
+        return new ObjectMapper().readValue((String)queryRunner
+                .query("select task_dag from schedule_task where task_id = ?", new ScalarHandler<>(), taskId),
+                TaskDAG.class);
+    }
+
+    //    执行的所有子任务激活值加一
+    @SneakyThrows
+    private static void incrementActivationValue(String taskPid, List<String> subTaskNames) {
+        QueryRunner queryRunner = new QueryRunner(DruidUtil.getDataSource());
+        String placeholder = getPlaceHolder(subTaskNames.size());
+        Object[] params = new Object[subTaskNames.size() + 1];
+        params[0] = taskPid;
+        for (int i = 0; i < subTaskNames.size(); i++) params[i + 1] = subTaskNames.get(i);
+        int rows = queryRunner.update("update sub_task set activation_value = activation_value + 1 " +
+                "where task_pid = ? and sub_task_id in " + placeholder, params);
+        if (rows != subTaskNames.size())
+            throw new RuntimeException("增加激活阈值失败：" + subTaskNames);
+    }
 
     //更新运行状态: 运行 -> 结束、指向的子任务激活值加一
     public static void finishSubTask(String taskPid, String subTaskName) {
-
+//        事务（原子性）
+        updateSubTaskStatus(taskPid, subTaskName, 0);//设置为结束运行状态
+        incrementActivationValue(taskPid,
+                selectTaskDAGBy(taskPid)
+                .getSubTaskNamesDrivenBy(subTaskName));//激活值+1
     }
 
     //更新运行状态
+    @SneakyThrows
     public static void updateSubTaskStatus(String taskPid, String subTaskName, int status) {
+        QueryRunner queryRunner = new QueryRunner(DruidUtil.getDataSource());
+        int rows = queryRunner.update("update sub_task set status = ? " +
+                "where task_pid = ? and sub_task_id = ?", status, taskPid, subTaskName);
+        if (rows != 1) throw new RuntimeException("更新记录" + rows + ":" + taskPid + "." + subTaskName + "." + status);
     }
 
 
+    //  所有子任务，重置换激活值，运行状态设置为等待
+    @SneakyThrows
+    private static void resetActivationValueAndSetWaitStatus(String taskPid, List<String> subTaskNames) {
+        QueryRunner queryRunner = new QueryRunner(DruidUtil.getDataSource());
+        String placeholder = getPlaceHolder(subTaskNames.size());
+        Object[] params = new Object[subTaskNames.size() + 1];
+        params[0] = taskPid;
+        for (int i = 0; i < subTaskNames.size(); i++) params[i + 1] = subTaskNames.get(i);
+        int rows = queryRunner.update("update sub_task set activation_value = 0 and status = 1 " +
+                "where task_pid = ? and sub_task_id in " + placeholder, params);
+        if (rows != subTaskNames.size())
+            throw new RuntimeException("增加激活阈值失败：" + subTaskNames);
+    }
+
+    private static String getPlaceHolder(int n) {
+        StringBuilder placeholder = new StringBuilder("(");
+        for (int i = 0; i < n; i++) placeholder.append("?,");
+        placeholder.deleteCharAt(placeholder.length() - 1).append(')');
+        return placeholder.toString();
+    }
+
     public static void updateTaskToStartState(ScheduleTask scheduleTask) {
+//        事务（原子性）
+        updateTaskStatus(scheduleTask.getTaskId(), 2);
+        resetActivationValueAndSetWaitStatus(scheduleTask.getTaskId(), scheduleTask.getTaskDAG().getSubTaskNames());
     }
 
     public static void updateTaskToFinishState(ScheduleTask scheduleTask) {
+        updateTaskStatus(scheduleTask.getTaskId(), 0);
+    }
+
+    @SneakyThrows
+    public static void updateTaskStatus(String taskId, int status) {
+        QueryRunner queryRunner = new QueryRunner(DruidUtil.getDataSource());
+        int rows = queryRunner.update("update schedule_task set status = ? " +
+                "where task_id = ?", status, taskId);
+        if (rows != 1) throw new RuntimeException("更新记录" + rows + "," + taskId);
     }
 }
