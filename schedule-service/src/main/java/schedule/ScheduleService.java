@@ -4,6 +4,7 @@ import bean.ScheduleTask;
 import bean.SubTask;
 import db.TaskDbUtil;
 import lombok.SneakyThrows;
+import lombok.extern.slf4j.Slf4j;
 import util.Utils;
 
 import java.io.IOException;
@@ -26,6 +27,7 @@ public class ScheduleService {
         scheduledFutureMap = new HashMap<>();
 //        启动监听数据库线程
         listenTaskStatus();
+        System.out.println("调度服务成功启动...");
     }
 
     private void listenTaskStatus() {
@@ -48,8 +50,8 @@ public class ScheduleService {
 
     //将数据库中的任务状态更新到内存，完成3件事情
     private void update(Map<String, ScheduleTask> oldTaskMap, Map<String, ScheduleTask> newTaskMap) {
-        Set<String> oldTaskIds = oldTaskMap.keySet();
-        Set<String> newTaskIds = newTaskMap.keySet();
+        Set<String> oldTaskIds = new HashSet<>(oldTaskMap.keySet());
+        Set<String> newTaskIds = new HashSet<>(newTaskMap.keySet());
 
 //        1.内存任务集合 减去 数据库任务集合 ---> 得到关闭的任务集合
         Utils.difference(oldTaskIds, newTaskIds)   //被关闭的任务
@@ -67,19 +69,32 @@ public class ScheduleService {
         Utils.intersection(oldTaskIds, newTaskIds)            //逐个驱动
                 .stream().filter(taskId -> oldTaskMap.get(taskId).isRunning())
                 .forEach(taskId -> taskStateTransition(oldTaskMap.get(taskId), newTaskMap.get(taskId)));//任务状态转换，用于驱动DAG流程执行
+
+
+//        日志部分
+        Set<String> disabledTaskIds = Utils.difference(oldTaskIds, newTaskIds);
+        if (disabledTaskIds.size() > 0)
+            System.out.println("任务成功关闭 -> " + disabledTaskIds);
+        Set<String> enabledTaskIds = Utils.difference(newTaskIds, oldTaskIds);
+        if (enabledTaskIds.size() > 0)
+            System.out.println("任务成功部署到线程池 -> " + enabledTaskIds);
+        Set<String> runningTasks = Utils.intersection(oldTaskIds, newTaskIds);
+        runningTasks.addAll(enabledTaskIds);
+        System.out.println("当前启用的任务 -> " + runningTasks);
     }
 
+//    任务状态转换
     private void taskStateTransition(ScheduleTask oldTask, ScheduleTask newTask) {
         for (String taskId : oldTask.getSubTaskMap().keySet()) {
             SubTask oldSubTask = oldTask.getSubTaskMap().get(taskId);
             SubTask newSubTask = newTask.getSubTaskMap().get(taskId);
             if (!oldSubTask.isFinish() && oldSubTask.getStatus() != newSubTask.getStatus()) { //只判断未完成 且 状态发生了变化 任务
-                oldSubTask.setStatus(newSubTask.getStatus());
+                oldSubTask.setStatus(newSubTask.getStatus());//更新之
                 if (newSubTask.getStatus() == 0) { //其他的状态变化无需关心，只需要关心任务  运行->结束 的变化
                     //某子任务驱动的所有子任务激活值加一
                     oldTask.getSubTasksDrivenBy(oldSubTask.getSubTaskName())
                             .forEach(subTask -> subTask.setActivationValue(subTask.getActivationValue() + 1));
-                    oldTask.getLatch().countDown();//驱动DAG流程的执行,唤醒阻塞
+                    oldTask.wakeUp();//驱动DAG流程的执行,唤醒阻塞
                 }
             }
         }

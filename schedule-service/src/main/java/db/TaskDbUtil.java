@@ -102,6 +102,7 @@ public class TaskDbUtil {
     //    执行的所有子任务激活值加一
     @SneakyThrows
     private static void incrementActivationValue(String taskPid, List<String> subTaskNames) {
+        if (subTaskNames.size() == 0) return;
         QueryRunner queryRunner = new QueryRunner(DruidUtil.getDataSource());
         String placeholder = getPlaceHolder(subTaskNames.size());
         Object[] params = new Object[subTaskNames.size() + 1];
@@ -135,12 +136,13 @@ public class TaskDbUtil {
     //  所有子任务，重置换激活值，运行状态设置为等待
     @SneakyThrows
     private static void resetActivationValueAndSetWaitStatus(String taskPid, List<String> subTaskNames) {
+        if (subTaskNames.size() == 0) return;
         QueryRunner queryRunner = new QueryRunner(DruidUtil.getDataSource());
         String placeholder = getPlaceHolder(subTaskNames.size());
         Object[] params = new Object[subTaskNames.size() + 1];
         params[0] = taskPid;
         for (int i = 0; i < subTaskNames.size(); i++) params[i + 1] = subTaskNames.get(i);
-        int rows = queryRunner.update("update sub_task set activation_value = 0 and status = 1 " +
+        int rows = queryRunner.update("update sub_task set activation_value = 0, status = 1 " +
                 "where task_pid = ? and sub_task_id in " + placeholder, params);
         if (rows != subTaskNames.size())
             throw new RuntimeException("增加激活阈值失败：" + subTaskNames);
@@ -159,9 +161,6 @@ public class TaskDbUtil {
         resetActivationValueAndSetWaitStatus(scheduleTask.getTaskId(), scheduleTask.getTaskDAG().getSubTaskNames());
     }
 
-    public static void updateTaskToFinishState(ScheduleTask scheduleTask) {
-        updateTaskStatus(scheduleTask.getTaskId(), 0);
-    }
 
     @SneakyThrows
     public static void updateTaskStatus(String taskId, int status) {

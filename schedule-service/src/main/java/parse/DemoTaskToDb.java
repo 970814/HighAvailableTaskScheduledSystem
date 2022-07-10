@@ -61,13 +61,12 @@ public class DemoTaskToDb {
         return taskId;
     }
 
-
-
-
     public static void enabledScheduleTaskDemo(String taskId)  {
         TaskDbUtil.enableScheduleTask(taskId, true, 60 * 1000L, 0);
     }
-
+    public static void disabledScheduleTaskDemo(String taskId)  {
+        TaskDbUtil.enableScheduleTask(taskId, false, 60 * 1000L, 0);
+    }
 
     public static void showEnabledScheduleTask()  {
 //      每当启动一个任务时，需要把其所有的子任务状态设置为等待。
@@ -79,13 +78,15 @@ public class DemoTaskToDb {
 
     }
 
-
     public static void main(String[] args) {
+        String taskId = "523003BB4B9D9E3CF2877B785E18B6E18DD6A60E98636FDDEAD75A895F049204";
 //        String taskId = addDemoTask();
 //        enabledScheduleTaskDemo(taskId);
+        disabledScheduleTaskDemo(taskId);
         showEnabledScheduleTask();
-        TaskDbUtil.finishSubTask("7971150C73710F64FD01989B7403CC84EB278E95EEA18554CD304B502473DC79", "B");
-        showEnabledScheduleTask();
+//        TaskDbUtil.finishSubTask("7971150C73710F64FD01989B7403CC84EB278E95EEA18554CD304B502473DC79", "B");
+//        showEnabledScheduleTask();
+
     }
 
 }

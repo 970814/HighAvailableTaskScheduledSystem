@@ -5,11 +5,9 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 import lombok.SneakyThrows;
 import lombok.var;
+import parse.DemoTaskToDb;
 
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 import java.util.concurrent.CountDownLatch;
 import java.util.function.Function;
 import java.util.stream.Collectors;
@@ -61,6 +59,7 @@ public class ScheduleTask {
     @SneakyThrows
     public void run()  {
         start();
+        System.out.println("---------" + name + "(" + taskId.replaceFirst("^(...).*(...)$", "$1...$2") + ")开始执行------------------------");
         var subTasks = subTaskMap.values();
         while (subTasks.stream().anyMatch(subTask -> subTask.getStatus() != 0)) { // 只要还有任何一个子任务未完成
             latch = new CountDownLatch(1);
@@ -69,15 +68,15 @@ public class ScheduleTask {
                     .filter(subTask -> subTask.getActivationValue() == subTask.getStartThreshold()) //且激活值等与启动阈值
                     .collect(Collectors.toList())                       // 的就绪子任务
                     .forEach(SubTask::run);                             //异步执行所有子任务
-            latch.await();                                              //阻塞,等待驱动 (暂不处理中断异常)
+            latch.await();                                              //阻塞,等待任务状态变化驱动 (暂不处理中断异常)
         }
+        System.out.println("---------" + name + "(" + taskId.replaceFirst("^(...).*(...)$", "$1...$2") + ")执行完成------------------------");
         finish(); //至此，所有子任务执行完成
     }
 
-//    定时任务执行结束
+    //    定时任务执行结束
     private void finish() {
-        TaskDbUtil.updateTaskToFinishState(this);//定时任务状态设置为结束
-        status = 0;
+        TaskDbUtil.updateTaskStatus(getTaskId(), status = 0); //定时任务状态设置为结束
     }
 
     //    得到某子任务驱动的子任务列表
@@ -91,6 +90,20 @@ public class ScheduleTask {
 
     public boolean isRunning() {
         return status == 2;
+    }
+
+    //驱动DAG流程的执行,唤醒阻塞
+    public void wakeUp() {
+        getLatch().countDown();
+    }
+
+    @Override
+    public String toString() {
+        return "ScheduleTask{" +
+                "name='" + name + '\'' +
+                ", enabled=" + enabled +
+                ", status=" + status +
+                '}';
     }
 }
 

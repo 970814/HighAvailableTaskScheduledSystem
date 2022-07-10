@@ -25,9 +25,9 @@ public class SubTask {
 //        这里需要将子任务传输到 任务执行节点 进行执行
 //        先进行简单模拟
 
-        String name = "子任务《" + taskPid + "." + subTaskName + "》";
-        System.out.println(name + "成功发生到执行节点");
+        String name = "子任务《" + taskPid.replaceFirst("^(...).*(...)$","$1...$2") + "-" + subTaskName + "》";
         TaskDbUtil.updateSubTaskStatus(taskPid, subTaskName, status = 2);//更新运行状态: 等待 -> 运行
+        System.out.println(name + "成功发生到执行节点");
         new Thread(() -> {
             try {
                 Thread.sleep(100);
@@ -50,5 +50,15 @@ public class SubTask {
 
     public boolean isFinish() {
         return status == 0;
+    }
+
+    @Override
+    public String toString() {
+        return "SubTask{" +
+                "subTaskName='" + subTaskName + '\'' +
+                ", activationValue=" + activationValue +
+                ", startThreshold=" + startThreshold +
+                ", status=" + status +
+                '}';
     }
 }
