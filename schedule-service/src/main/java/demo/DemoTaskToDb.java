@@ -17,9 +17,8 @@ public class DemoTaskToDb {
 
 
 
-    public static String addDemoTask() {
+    public static String addDemoTask(String taskId) {
 //        假设zip包已经解析完成，因此可得到如下数据，然后存入数据库
-        String taskId = Utils.generateRandomTaskId();
         List<String> subTaskIds = new ArrayList<>();//子任务列表
         subTaskIds.add("A");   //       A  B       使用此依赖关系为例子
         subTaskIds.add("B");   //       |/ |
@@ -75,7 +74,7 @@ public class DemoTaskToDb {
 
     public static void main(String[] args) {
         String taskId = "523003BB4B9D9E3CF2877B785E18B6E18DD6A60E98636FDDEAD75A895F049204";
-//        String taskId = addDemoTask();
+        addDemoTask(taskId);
         enabledScheduleTaskDemo(taskId);
 //        disabledScheduleTaskDemo(taskId);
         showEnabledScheduleTask();
