@@ -47,22 +47,27 @@ select * from schedule_task;
 select * from sub_task;
 select * from execution_record;
 select sub_task_id, start_datetime, end_datetime, cost_time, result, tx_id, task_id
-from execution_record;
-
-
-
-truncate table schedule_task;
-truncate table sub_task;
-truncate table execution_record;
-
-insert into schedule_task(task_id,period,task_dag,enabled,status,max_iter_cnt) values (
-'2CFDCADF6B2C103FDE4CE1680D5F8319E3E794461BAE859D86D3E9E4AD48F2B6',
-60000,
-'{"subTskIds":["A","B","C","D","E"],"tskDeps":[{"startId":"A","endId":"C"},{"startId":"B","endId":"C"},{"startId":"B","endId":"D"},{"startId":"C","endId":"E"},{"startId":"D","endId":"E"}]}',
-0,0,0);
+from execution_record order by tx_id,task_id,sub_task_id;
 
 
 
 
+# insert into schedule_task(task_id,period,task_dag,enabled,status,max_iter_cnt) values (
+# '2CFDCADF6B2C103FDE4CE1680D5F8319E3E794461BAE859D86D3E9E4AD48F2B6',
+# 60000,
+# '{"subTskIds":["A","B","C","D","E"],"tskDeps":[{"startId":"A","endId":"C"},{"startId":"B","endId":"C"},{"startId":"B","endId":"D"},{"startId":"C","endId":"E"},{"startId":"D","endId":"E"}]}',
+# 0,0,0);
 
 
+
+
+update schedule_task set name='第二个定时任务' where  task_id='18FE5F9E4DB147556837C5486CEA0CF7BCC43FDFAFC48C30E2CA0F147D5CACDC';
+
+delete  from schedule_task where task_id='A35D9BAD4367826BDFD7C3001D8ACDA8102A0373E72D687DD1A73CDFEB1AB970';
+delete  from sub_task where task_pid='A35D9BAD4367826BDFD7C3001D8ACDA8102A0373E72D687DD1A73CDFEB1AB970';
+
+
+
+# truncate table schedule_task;
+# truncate table sub_task;
+# truncate table execution_record;

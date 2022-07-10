@@ -73,8 +73,11 @@ public class DemoTaskToDb {
     }
 
     public static void main(String[] args) {
-        String taskId = "523003BB4B9D9E3CF2877B785E18B6E18DD6A60E98636FDDEAD75A895F049204";
-        addDemoTask(taskId);
+//        String taskId = "523003BB4B9D9E3CF2877B785E18B6E18DD6A60E98636FDDEAD75A895F049204";
+        String taskId = "18FE5F9E4DB147556837C5486CEA0CF7BCC43FDFAFC48C30E2CA0F147D5CACDC";
+//        String taskId = Utils.generateRandomTaskId();
+
+//        addDemoTask(taskId);
         enabledScheduleTaskDemo(taskId);
 //        disabledScheduleTaskDemo(taskId);
         showEnabledScheduleTask();
