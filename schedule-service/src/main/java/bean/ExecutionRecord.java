@@ -19,6 +19,18 @@ public class ExecutionRecord {
     long startTm;
     long endTm;
 
+    public static ExecutionRecord start(String txId, String taskId, String subTaskId) {
+        return new ExecutionRecord(txId, taskId, subTaskId, "运行");
+    }
+
+    public ExecutionRecord finish() {
+        return finish(System.currentTimeMillis(), "成功");
+    }
+
+    public ExecutionRecord(String txId, String taskId, String subTaskId, String result) {
+        this(txId, taskId, subTaskId, System.currentTimeMillis(), result);
+    }
+
     public ExecutionRecord(String txId, String taskId, String subTaskId, long startTm, String result) {
         this.txId = txId;
         this.taskId = taskId;
@@ -28,9 +40,10 @@ public class ExecutionRecord {
         this.startTm = startTm;
     }
 
-    public ExecutionRecord finish(long endTm) {
+
+    public ExecutionRecord finish(long endTm, String result) {
         endDatetime = Utils.currentCSTDateTimeStr(endTm);
-        result = "成功";
+        this.result = result;
         costTime = (int) (((this.endTm = endTm) - startTm) / 1000);
         return this;
     }

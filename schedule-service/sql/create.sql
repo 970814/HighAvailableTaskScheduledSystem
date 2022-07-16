@@ -78,7 +78,7 @@ delete  from sub_task where task_pid='A35D9BAD4367826BDFD7C3001D8ACDA8102A0373E7
 
 # truncate table schedule_task;
 # truncate table sub_task;
-# truncate table execution_record;
+truncate table execution_record;
 
 
 

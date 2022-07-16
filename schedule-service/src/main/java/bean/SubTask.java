@@ -1,11 +1,14 @@
 package bean;
 
+import db.DruidUtil;
 import db.TaskDbUtil;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+import lombok.SneakyThrows;
 import util.Utils;
 
+import java.sql.Connection;
 import java.util.Random;
 
 // 子任务
@@ -31,15 +34,19 @@ public class SubTask {
 
         ExecutionRecord executionRecord;
     //    异步执行子任务
+    @SneakyThrows
     public void run(String txId) {
-//        写入运行记录
-        TaskDbUtil.startExecutionRecord(executionRecord = new ExecutionRecord(txId, taskPid, subTaskName, System.currentTimeMillis(), "运行"));
+
+        TaskDbUtil.executeTransaction(conn -> {
+            //        写入子任务运行记录
+            TaskDbUtil.startExecutionRecord(conn, executionRecord = ExecutionRecord.start(txId, taskPid, subTaskName));
+            TaskDbUtil.updateSubTaskStatus(conn,taskPid, subTaskName, status = 2);//更新运行状态: 等待 -> 运行
+        });
 
 //        这里需要将子任务传输到 任务执行节点 进行执行
 //        先进行简单模拟
 
         String name = "子任务《" + taskPid.replaceFirst("^(...).*(...)$","$1...$2") + "-" + subTaskName + "》";
-        TaskDbUtil.updateSubTaskStatus(taskPid, subTaskName, status = 2);//更新运行状态: 等待 -> 运行
         System.out.println(name + "成功发生到执行节点");
         new Thread(() -> {
             try {
@@ -52,8 +59,10 @@ public class SubTask {
                 System.out.println("------" + name + "执行完成---------");
                 Thread.sleep(100);
                 //更新运行状态: 运行 -> 结束、指向的子任务激活值加一, 该事件可被轮询线程捕获
-                TaskDbUtil.finishSubTask(taskPid, subTaskName);
-                TaskDbUtil.endExecutionRecord(executionRecord.finish(System.currentTimeMillis()));
+                TaskDbUtil.executeTransaction(conn -> {
+                    TaskDbUtil.finishSubTask(conn, taskPid, subTaskName);
+                    TaskDbUtil.endExecutionRecord(conn, executionRecord.finish());
+                });
             } catch (InterruptedException e) {
                 e.printStackTrace();
             }

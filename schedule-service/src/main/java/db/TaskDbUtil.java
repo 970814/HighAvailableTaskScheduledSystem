@@ -14,6 +14,7 @@ import org.apache.commons.dbutils.handlers.ScalarHandler;
 import java.sql.Connection;
 import java.sql.SQLException;
 import java.util.*;
+import java.util.function.Consumer;
 
 @SuppressWarnings("DuplicatedCode")
 public class TaskDbUtil {
@@ -99,35 +100,36 @@ public class TaskDbUtil {
                 TaskDAG.class);
     }
 
+
     //    执行的所有子任务激活值加一
     @SneakyThrows
-    private static void incrementActivationValue(String taskPid, List<String> subTaskNames) {
+    private static void incrementActivationValue(Connection conn, String taskPid, List<String> subTaskNames) {
         if (subTaskNames.size() == 0) return;
-        QueryRunner queryRunner = new QueryRunner(DruidUtil.getDataSource());
+        QueryRunner queryRunner = new QueryRunner();
         String placeholder = getPlaceHolder(subTaskNames.size());
         Object[] params = new Object[subTaskNames.size() + 1];
         params[0] = taskPid;
         for (int i = 0; i < subTaskNames.size(); i++) params[i + 1] = subTaskNames.get(i);
-        int rows = queryRunner.update("update sub_task set activation_value = activation_value + 1 " +
+        int rows = queryRunner.update(conn, "update sub_task set activation_value = activation_value + 1 " +
                 "where task_pid = ? and sub_task_id in " + placeholder, params);
         if (rows != subTaskNames.size())
             throw new RuntimeException("增加激活阈值失败：" + subTaskNames);
     }
 
     //更新运行状态: 运行 -> 结束、指向的子任务激活值加一
-    public static void finishSubTask(String taskPid, String subTaskName) {
+    public static void finishSubTask(Connection conn, String taskPid, String subTaskName) {
 //        事务（原子性）
-        updateSubTaskStatus(taskPid, subTaskName, 0);//设置为结束运行状态
-        incrementActivationValue(taskPid,
+        updateSubTaskStatus(conn, taskPid, subTaskName, 0);//设置为结束运行状态
+        incrementActivationValue(conn, taskPid,
                 selectTaskDAGBy(taskPid)
-                .getSubTaskNamesDrivenBy(subTaskName));//激活值+1
+                        .getSubTaskNamesDrivenBy(subTaskName));//激活值+1
     }
 
     //更新运行状态
     @SneakyThrows
-    public static void updateSubTaskStatus(String taskPid, String subTaskName, int status) {
-        QueryRunner queryRunner = new QueryRunner(DruidUtil.getDataSource());
-        int rows = queryRunner.update("update sub_task set status = ? " +
+    public static void updateSubTaskStatus(Connection conn, String taskPid, String subTaskName, int status) {
+        QueryRunner queryRunner = new QueryRunner();
+        int rows = queryRunner.update(conn,"update sub_task set status = ? " +
                 "where task_pid = ? and sub_task_id = ?", status, taskPid, subTaskName);
         if (rows != 1) throw new RuntimeException("更新记录" + rows + ":" + taskPid + "." + subTaskName + "." + status);
     }
@@ -135,14 +137,14 @@ public class TaskDbUtil {
 
     //  所有子任务，重置换激活值，运行状态设置为等待
     @SneakyThrows
-    private static void resetActivationValueAndSetWaitStatus(String taskPid, List<String> subTaskNames) {
+    private static void resetActivationValueAndSetWaitStatus(Connection conn,String taskPid, List<String> subTaskNames) {
         if (subTaskNames.size() == 0) return;
-        QueryRunner queryRunner = new QueryRunner(DruidUtil.getDataSource());
+        QueryRunner queryRunner = new QueryRunner();
         String placeholder = getPlaceHolder(subTaskNames.size());
         Object[] params = new Object[subTaskNames.size() + 1];
         params[0] = taskPid;
         for (int i = 0; i < subTaskNames.size(); i++) params[i + 1] = subTaskNames.get(i);
-        int rows = queryRunner.update("update sub_task set activation_value = 0, status = 1 " +
+        int rows = queryRunner.update(conn, "update sub_task set activation_value = 0, status = 1 " +
                 "where task_pid = ? and sub_task_id in " + placeholder, params);
         if (rows != subTaskNames.size())
             throw new RuntimeException("增加激活阈值失败：" + subTaskNames);
@@ -155,17 +157,17 @@ public class TaskDbUtil {
         return placeholder.toString();
     }
 
-    public static void updateTaskToStartState(ScheduleTask scheduleTask) {
+    public static void updateTaskToStartState(Connection conn, ScheduleTask scheduleTask) {
 //        事务（原子性）
-        updateTaskStatus(scheduleTask.getTaskId(), 2);
-        resetActivationValueAndSetWaitStatus(scheduleTask.getTaskId(), scheduleTask.getTaskDAG().getSubTaskNames());
+        updateTaskStatus(conn, scheduleTask.getTaskId(), 2);
+        resetActivationValueAndSetWaitStatus(conn,scheduleTask.getTaskId(), scheduleTask.getTaskDAG().getSubTaskNames());
     }
 
 
     @SneakyThrows
-    public static void updateTaskStatus(String taskId, int status) {
-        QueryRunner queryRunner = new QueryRunner(DruidUtil.getDataSource());
-        int rows = queryRunner.update("update schedule_task set status = ? " +
+    public static void updateTaskStatus(Connection conn,String taskId, int status) { //改造成事务的一部分
+        QueryRunner queryRunner = new QueryRunner();
+        int rows = queryRunner.update(conn, "update schedule_task set status = ? " +
                 "where task_id = ?", status, taskId);
         if (rows != 1) throw new RuntimeException("更新记录" + rows + "," + taskId);
     }
@@ -173,7 +175,7 @@ public class TaskDbUtil {
 
     //    写入执行记录
     @SneakyThrows
-    public static void startExecutionRecord(ExecutionRecord er, Connection txConn) {
+    public static void startExecutionRecord(Connection txConn, ExecutionRecord er) {
         QueryRunner queryRunner = new QueryRunner();
         int rows = queryRunner.update(txConn, "insert into execution_record(tx_id,task_id,sub_task_id,start_datetime,end_datetime,result)" +
                         " values(?,?,?,?,?,?)",
@@ -182,8 +184,8 @@ public class TaskDbUtil {
         if (rows != 1) throw new RuntimeException("写入数据失败: rows=" + rows);
     }
 
-    public static void endExecutionRecord(ExecutionRecord er) {
-        QueryRunner queryRunner = new QueryRunner(DruidUtil.getDataSource());
+    public static void endExecutionRecord(Connection conn, ExecutionRecord er) {
+        QueryRunner queryRunner = new QueryRunner();
 
         Object[] params = new Object[]{er.getEndDatetime(), er.getResult(), er.getCostTime(), er.getTxId(), er.getTaskId(), er.getSubTaskId()};
 
@@ -194,13 +196,23 @@ public class TaskDbUtil {
         }
         int rows = 0;
         try {
-            rows = queryRunner.update("update execution_record set end_datetime = ?, result = ?, cost_time = ? " +
+            rows = queryRunner.update(conn, "update execution_record set end_datetime = ?, result = ?, cost_time = ? " +
                     "where tx_id = ? and task_id = ? and sub_task_id " + endSql, params);
         } catch (SQLException e) {
             e.printStackTrace();
         }
         if (rows != 1) throw new RuntimeException("更新数据失败: rows=" + rows);
     }
+
+    @SneakyThrows
+    public static void executeTransaction(Consumer<Connection> tx) {
+        Connection conn = DruidUtil.getConnection();
+        conn.setAutoCommit(false);//关闭自动提交
+        tx.accept(conn);
+        conn.commit();
+        DruidUtil.close(conn);
+    }
+
 }
 /*
 

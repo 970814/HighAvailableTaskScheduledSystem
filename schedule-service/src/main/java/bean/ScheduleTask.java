@@ -2,6 +2,7 @@ package bean;
 
 import db.DruidUtil;
 import db.TaskDbUtil;
+import javafx.concurrent.Task;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 import lombok.SneakyThrows;
@@ -9,6 +10,8 @@ import lombok.extern.slf4j.Slf4j;
 import lombok.var;
 import util.Utils;
 
+import java.sql.Connection;
+import java.sql.SQLException;
 import java.util.*;
 import java.util.concurrent.CountDownLatch;
 import java.util.stream.Collectors;
@@ -28,7 +31,7 @@ public class ScheduleTask {
     //最大执行次数，当任务被启动后，执行达到maxIterCnt次后，将会自动关闭。
     //如果需要执行一次性任务，该值可设置为1
     Integer maxIterCnt;
-//    String scheduleNodeId; // 该任务执行所在的调度节点Id
+//    String scheduledNodeId; // 该任务执行所在的调度节点Id
 
     Map<String, SubTask> subTaskMap; // 子任务对象列表 <name,task>
 
@@ -51,12 +54,13 @@ public class ScheduleTask {
     //    (无锁)启动定时任务
     public void start() {
 
-//        写入运行记录
-        TaskDbUtil.startExecutionRecord(executionRecord = new ExecutionRecord(Utils.generateRandomTransactionId(), taskId, null,
-                System.currentTimeMillis(), "运行"));
-        //需要先更新数据库状态，再更新内存状态
-        TaskDbUtil.updateTaskToStartState(this);
+        TaskDbUtil.executeTransaction(conn -> {
+            //        写入运行记录
+            TaskDbUtil.startExecutionRecord(conn, executionRecord = ExecutionRecord.start(Utils.generateRandomTransactionId(), taskId, null));
+            TaskDbUtil.updateTaskToStartState(conn, this);
+        });
 
+        //需要先更新数据库状态，再更新内存状态
         for (var subTask : subTaskMap.values()) {
             subTask.status = 1; // 子任务设置为等待状态
             subTask.activationValue = 0; //重置激活值
@@ -87,8 +91,12 @@ public class ScheduleTask {
 
     //    定时任务执行结束
     private void finish() {
-        TaskDbUtil.endExecutionRecord(executionRecord.finish(System.currentTimeMillis()));
-        TaskDbUtil.updateTaskStatus(getTaskId(), status = 0); //定时任务状态设置为结束
+
+        TaskDbUtil.executeTransaction(conn -> {
+            TaskDbUtil.endExecutionRecord(conn, executionRecord.finish());
+            TaskDbUtil.updateTaskStatus(conn, getTaskId(), status = 0); //定时任务状态设置为结束
+        });
+
     }
 
     //    得到某子任务驱动的子任务列表
