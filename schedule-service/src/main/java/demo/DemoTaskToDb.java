@@ -78,8 +78,8 @@ public class DemoTaskToDb {
 //        String taskId = Utils.generateRandomTaskId();
 
 //        addDemoTask(taskId);
-//        enabledScheduleTaskDemo(taskId);
-        disabledScheduleTaskDemo(taskId);
+        enabledScheduleTaskDemo(taskId);
+//        disabledScheduleTaskDemo(taskId);
 //        showEnabledScheduleTask();
 //        TaskDbUtil.finishSubTask("7971150C73710F64FD01989B7403CC84EB278E95EEA18554CD304B502473DC79", "B");
 //        showEnabledScheduleTask();

@@ -11,6 +11,7 @@ import org.apache.commons.dbutils.QueryRunner;
 import org.apache.commons.dbutils.handlers.MapListHandler;
 import org.apache.commons.dbutils.handlers.ScalarHandler;
 
+import java.sql.Connection;
 import java.sql.SQLException;
 import java.util.*;
 
@@ -170,12 +171,11 @@ public class TaskDbUtil {
     }
 
 
-
-//    写入执行记录
+    //    写入执行记录
     @SneakyThrows
-    public static void startExecutionRecord(ExecutionRecord er) {
-        QueryRunner queryRunner = new QueryRunner(DruidUtil.getDataSource());
-        int rows = queryRunner.update("insert into execution_record(tx_id,task_id,sub_task_id,start_datetime,end_datetime,result)" +
+    public static void startExecutionRecord(ExecutionRecord er, Connection txConn) {
+        QueryRunner queryRunner = new QueryRunner();
+        int rows = queryRunner.update(txConn, "insert into execution_record(tx_id,task_id,sub_task_id,start_datetime,end_datetime,result)" +
                         " values(?,?,?,?,?,?)",
                 er.getTxId(), er.getTaskId(), er.getSubTaskId(), er.getStartDatetime(), er.getEndDatetime(),
                 er.getResult());

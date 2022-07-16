@@ -1,9 +1,11 @@
 package bean;
 
+import db.DruidUtil;
 import db.TaskDbUtil;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 import lombok.SneakyThrows;
+import lombok.extern.slf4j.Slf4j;
 import lombok.var;
 import util.Utils;
 
@@ -14,6 +16,7 @@ import java.util.stream.Collectors;
 // 定时任务
 @Data
 @NoArgsConstructor
+@Slf4j
 public class ScheduleTask {
     //    该任务的唯一标识，使用zip包的SHA256值，zip包将会被重命名为taskId值。因此路径不用单独定义
     String taskId;
@@ -47,11 +50,13 @@ public class ScheduleTask {
 
     //    (无锁)启动定时任务
     public void start() {
+
 //        写入运行记录
         TaskDbUtil.startExecutionRecord(executionRecord = new ExecutionRecord(Utils.generateRandomTransactionId(), taskId, null,
                 System.currentTimeMillis(), "运行"));
         //需要先更新数据库状态，再更新内存状态
         TaskDbUtil.updateTaskToStartState(this);
+
         for (var subTask : subTaskMap.values()) {
             subTask.status = 1; // 子任务设置为等待状态
             subTask.activationValue = 0; //重置激活值
@@ -65,7 +70,7 @@ public class ScheduleTask {
     @SneakyThrows
     public void run0() {
         start();
-        System.out.println("---------" + name + "(" + taskId.replaceFirst("^(...).*(...)$", "$1...$2") + ")开始执行------------------------");
+        log.info("---------" + name + "(" + taskId.replaceFirst("^(...).*(...)$", "$1...$2") + ")开始执行------------------------");
         var subTasks = subTaskMap.values();
         while (subTasks.stream().anyMatch(subTask -> subTask.getStatus() != 0)) { // 只要还有任何一个子任务未完成
             latch = new CountDownLatch(1);
@@ -77,7 +82,7 @@ public class ScheduleTask {
             latch.await();                                                                          //阻塞,等待任务状态变化驱动 (暂不处理中断异常)
         }
         finish(); //至此，所有子任务执行完成
-        System.out.println("---------" + name + "(" + taskId.replaceFirst("^(...).*(...)$", "$1...$2") + ")执行完成------------------------");
+        log.info("---------" + name + "(" + taskId.replaceFirst("^(...).*(...)$", "$1...$2") + ")执行完成------------------------");
     }
 
     //    定时任务执行结束
@@ -119,7 +124,7 @@ public class ScheduleTask {
     public void run() {
         try {
             run0();
-        } catch (Exception e) {
+        } catch (Throwable e) {
             e.printStackTrace();
             System.exit(1);
         }
