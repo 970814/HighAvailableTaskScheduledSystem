@@ -6,6 +6,7 @@ import dtss.scheduled.bean.SubTask;
 import dtss.scheduled.bean.TaskDAG;
 import dtss.scheduled.db.TaskDbUtil;
 
+import java.sql.Connection;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -14,7 +15,7 @@ public class DemoTaskToDb {
 
 
 
-    public static String addDemoTask(String taskId) {
+    public static String addDemoTask(String taskId,Integer scheduledNodeId) {
 //        假设zip包已经解析完成，因此可得到如下数据，然后存入数据库
         List<String> subTaskIds = new ArrayList<>();//子任务列表
         subTaskIds.add("A");   //       A  B       使用此依赖关系为例子
@@ -45,28 +46,28 @@ public class DemoTaskToDb {
         subTasks.add(E);
 
 //      定时任务
-        ScheduleTask scheduleTask = new ScheduleTask(taskId, "我的第一个定时任务", 60 * 1000L,
-                taskDAG, false, 0, 0, subTasks);
+        ScheduleTask scheduleTask = new ScheduleTask(taskId, "第二个定时任务", 60 * 1000L,
+                taskDAG, false, 0, 0, 1, subTasks);
 
         TaskDbUtil.writeTaskToDb(scheduleTask);
         return taskId;
     }
 
-    public static void enabledScheduleTaskDemo(String taskId)  {
-        TaskDbUtil.enableScheduleTask(taskId, true, 60 * 1000L, 0);
+    public static void enabledScheduleTaskDemo(Connection conn,String taskId, Integer scheduledNodeId)  {
+        TaskDbUtil.enableScheduleTask(conn,taskId, true, 60 * 1000L, 0, scheduledNodeId);
     }
-    public static void disabledScheduleTaskDemo(String taskId)  {
-        TaskDbUtil.enableScheduleTask(taskId, false, 60 * 1000L, 0);
+    public static void disabledScheduleTaskDemo(Connection conn,String taskId,Integer scheduledNodeId)  {
+        TaskDbUtil.enableScheduleTask(conn,taskId, false, 60 * 1000L, 0, scheduledNodeId);
     }
 
     public static void showEnabledScheduleTask()  {
 //      每当启动一个任务时，需要把其所有的子任务状态设置为等待。
-        List<ScheduleTask> scheduleTasks = TaskDbUtil.selectEnabledScheduleTask();
-        for (ScheduleTask scheduleTask : scheduleTasks)
+        List<ScheduleTask> scheduleTasks = TaskDbUtil.selectAllScheduleTask();
+        for (ScheduleTask scheduleTask : scheduleTasks) {
+            System.out.println(scheduleTask);
             for (SubTask subTask : scheduleTask.getSubTaskMap().values())
                 System.out.println(subTask);
-        System.out.println(scheduleTasks);
-
+        }
     }
 
     public static void main(String[] args) {
@@ -74,10 +75,12 @@ public class DemoTaskToDb {
 //        String taskId = "18FE5F9E4DB147556837C5486CEA0CF7BCC43FDFAFC48C30E2CA0F147D5CACDC";
 //        String taskId = Utils.generateRandomTaskId();
 
-//        addDemoTask(taskId);
-        enabledScheduleTaskDemo(taskId);
+//        addDemoTask(taskId, 1);
+//        enabledScheduleTaskDemo(taskId,1);
+//        enabledScheduleTaskDemo(taskId);
 //        disabledScheduleTaskDemo(taskId);
 //        showEnabledScheduleTask();
+
 //        TaskDbUtil.finishSubTask("7971150C73710F64FD01989B7403CC84EB278E95EEA18554CD304B502473DC79", "B");
 //        showEnabledScheduleTask();
 

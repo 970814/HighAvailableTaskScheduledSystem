@@ -1,4 +1,4 @@
-package dtss.election.zkutil;
+package dtss.simpleui.zkutil;
 
 
 import lombok.SneakyThrows;
@@ -63,7 +63,7 @@ public class ScheduleServiceMonitor {
         }, 0, 5000);
     }
 
-    //    随机挑选一个节点id
+//    随机挑选一个节点id
     public  Integer selectRandomScheduledNodeId() {
         Random random = new Random();
         List<String> ids = getServerInfos();

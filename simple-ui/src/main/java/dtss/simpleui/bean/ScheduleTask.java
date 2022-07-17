@@ -18,6 +18,7 @@ public class ScheduleTask {
     Long period;      //执行周期
     boolean enabled; // 任务总开关
     int status;    // 运行状态 结束0 运行2   不需要等待状态 等待1
+    Integer scheduledNodeId;         // 该任务执行所在的调度节点Id
 
     public static List<String> getColumnNames() {
         return Arrays.asList(
@@ -25,7 +26,8 @@ public class ScheduleTask {
                 "任务Id",
                 "执行周期",
                 "启停状态",
-                "运行状态"
+                "运行状态",
+                "节点位置"
         );
     }
 
@@ -36,6 +38,7 @@ public class ScheduleTask {
                 period == null ? "/" : String.valueOf(period),
                 enabled  ? "启用" : "关闭",
                 status == 2 ? "运行" : "结束",
+                scheduledNodeId == null ? "/" : String.valueOf(scheduledNodeId),
         };
     }
 

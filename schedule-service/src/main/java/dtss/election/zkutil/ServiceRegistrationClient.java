@@ -1,10 +1,6 @@
 package dtss.election.zkutil;
 import dtss.tp.ThreadPool;
-import lombok.SneakyThrows;
-import lombok.extern.slf4j.Slf4j;
 import org.I0Itec.zkclient.ZkClient;
-
-import java.util.concurrent.Executors;
 
 //将一个服务地址注册到zookeeper上
 public class ServiceRegistrationClient {
@@ -31,7 +27,9 @@ public class ServiceRegistrationClient {
         System.out.println("向zk注册成功, 调度节点`" + scheduledNodeId + "`开始调度任务");
     }
 
-    public void registerAsLeader() {
+
+
+    public void registerAsLeader(CallBack callBack) {
         ThreadPool.getThreadPool().execute(() -> {
             String path = rootPath + "/leaderNodeId";
             while (true) {
@@ -43,6 +41,7 @@ public class ServiceRegistrationClient {
                         try {
                             zkClient.createEphemeral(path, scheduledNodeId);
                             System.out.println("调度节点" + scheduledNodeId + "成功成为leader");
+                            callBack.callback();
                             break;
                         } catch (Throwable e) {
                             System.out.println("Exception -> " + e);

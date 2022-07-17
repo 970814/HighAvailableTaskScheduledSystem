@@ -38,11 +38,35 @@ public class TaskDbUtil {
         }
     }
 
+    @SneakyThrows
+    public static List<ScheduleTask> selectAllScheduleTask() {
+        QueryRunner queryRunner = new QueryRunner(DruidUtil.getDataSource());
+        List<Map<String, Object>> mapList = queryRunner.query("select task_id,name,period,task_dag,enabled,status,max_iter_cnt,scheduled_node_id scheduledNodeId from schedule_task " +
+                        "",
+                new MapListHandler());
+        List<ScheduleTask> scheduleTasks = new ArrayList<>();
+        ObjectMapper om = new ObjectMapper();
+        for (Map<String, Object> map : mapList) {
+            String task_id = (String) map.get("task_id");
+            String name = (String) map.get("name");
+            Long period = Long.valueOf((String) map.get("period"));
+            String task_dag = (String) map.get("task_dag");
+            boolean enabled = (Boolean) map.get("enabled");
+            int status = (Integer) map.get("status");
+            Integer max_iter_cnt = (Integer) map.get("max_iter_cnt");
+            Integer scheduled_node_id = (Integer) map.get("scheduled_node_id");
+            scheduleTasks.add(new ScheduleTask(task_id, name, period,
+                    om.readValue(task_dag, TaskDAG.class),
+                    enabled, status, max_iter_cnt, scheduled_node_id,
+                    selectSubTasks(task_id)));
+        }
+        return scheduleTasks;
+    }
     //    查询出属于启用状态的定时任务
     @SneakyThrows
     public static List<ScheduleTask> selectEnabledScheduleTask() {
         QueryRunner queryRunner = new QueryRunner(DruidUtil.getDataSource());
-        List<Map<String, Object>> mapList = queryRunner.query("select task_id,name,period,task_dag,enabled,status,max_iter_cnt from schedule_task " +
+        List<Map<String, Object>> mapList = queryRunner.query("select task_id,name,period,task_dag,enabled,status,max_iter_cnt,scheduled_node_id scheduledNodeId from schedule_task " +
                         "where enabled = true",
                 new MapListHandler());
         List<ScheduleTask> scheduleTasks = new ArrayList<>();
@@ -55,9 +79,43 @@ public class TaskDbUtil {
             boolean enabled = (Boolean) map.get("enabled");
             int status = (Integer) map.get("status");
             Integer max_iter_cnt = (Integer) map.get("max_iter_cnt");
+            Integer scheduledNodeId = (Integer) map.get("scheduledNodeId");
             scheduleTasks.add(new ScheduleTask(task_id, name, period,
                     om.readValue(task_dag, TaskDAG.class),
-                    enabled, status, max_iter_cnt,
+                    enabled, status, max_iter_cnt, scheduledNodeId,
+                    selectSubTasks(task_id)));
+        }
+        return scheduleTasks;
+    }
+
+    public static void main(String[] args) {
+        List<ScheduleTask> scheduleTasks = selectEnabledScheduleTask();
+        System.out.println(scheduleTasks);
+    }
+
+
+
+    //    查询出属于启用状态的定时任务
+    @SneakyThrows
+    public static List<ScheduleTask> selectEnabledScheduleTask(int scheduledNodeId) {
+        QueryRunner queryRunner = new QueryRunner(DruidUtil.getDataSource());
+        List<Map<String, Object>> mapList = queryRunner
+                .query("select task_id,name,period,task_dag,enabled,status,max_iter_cnt,scheduled_node_id scheduledNodeId from schedule_task " +
+                        "where enabled = true and scheduled_node_id = ?",
+                new MapListHandler(),scheduledNodeId);
+        List<ScheduleTask> scheduleTasks = new ArrayList<>();
+        ObjectMapper om = new ObjectMapper();
+        for (Map<String, Object> map : mapList) {
+            String task_id = (String) map.get("task_id");
+            String name = (String) map.get("name");
+            Long period = Long.valueOf((String) map.get("period"));
+            String task_dag = (String) map.get("task_dag");
+            boolean enabled = (Boolean) map.get("enabled");
+            int status = (Integer) map.get("status");
+            Integer max_iter_cnt = (Integer) map.get("max_iter_cnt");
+            scheduleTasks.add(new ScheduleTask(task_id, name, period,
+                    om.readValue(task_dag, TaskDAG.class),
+                    enabled, status, max_iter_cnt, scheduledNodeId,
                     selectSubTasks(task_id)));
         }
         return scheduleTasks;
@@ -85,11 +143,11 @@ public class TaskDbUtil {
 
     //    启用或关闭一个定时任务。 如果是启用，那么需要配置执行周期和最大执行次数，0表示无限制。
     @SneakyThrows
-    public static void enableScheduleTask(String taskId, boolean enabled, Long period, Integer maxIterCnt) {
-        QueryRunner queryRunner = new QueryRunner(DruidUtil.getDataSource());
+    public static void enableScheduleTask(Connection conn,String taskId, boolean enabled, Long period, Integer maxIterCnt,Integer scheduledNodeId) {
+        QueryRunner queryRunner = new QueryRunner();
         int rows = queryRunner
-                .update("update schedule_task set enabled = ?, period = ?, max_iter_cnt = ? where task_id = ?"
-                        , enabled, period, maxIterCnt, taskId);
+                .update(conn,"update schedule_task set enabled = ?, period = ?, max_iter_cnt = ?, scheduled_node_id = ? where task_id = ?"
+                        , enabled, period, maxIterCnt, scheduledNodeId, taskId);
         if (rows != 1) throw new RuntimeException("更新记录" + rows + "," + taskId);
     }
 

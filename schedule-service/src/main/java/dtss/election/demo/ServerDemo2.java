@@ -9,7 +9,7 @@ public class ServerDemo2 {
         ServiceRegistrationClient serRegCli = new ServiceRegistrationClient("2");
         serRegCli.connectZk();
         serRegCli.saveServerInfo();
-        serRegCli.registerAsLeader();
+        serRegCli.registerAsLeader(null);
         Thread.sleep(10000000);
     }
 }

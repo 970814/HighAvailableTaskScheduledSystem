@@ -6,6 +6,7 @@ import dtss.simpleui.bean.ScheduleTask;
 import dtss.simpleui.test.RowHeaderTable;
 import dtss.simpleui.ui.table.DataTable;
 import dtss.simpleui.ui.windows.TableWindows;
+import dtss.simpleui.zkutil.ScheduleServiceMonitor;
 import lombok.SneakyThrows;
 
 import javax.swing.*;
@@ -24,8 +25,9 @@ public class TaskTable extends DataTable {
     String taskId;
     String name;
     int selectedRow;
-
+    ScheduleServiceMonitor monitor = new ScheduleServiceMonitor();
     public TaskTable() {
+        monitor.connectZk();
         GroupLayout contentPaneLayout = new GroupLayout(this);
         setLayout(contentPaneLayout);
         JScrollPane scrollPane = new JScrollPane();
@@ -52,8 +54,8 @@ public class TaskTable extends DataTable {
         jTable.getTableHeader().setDefaultRenderer(tcr);
 
         JPopupMenu menu = new JPopupMenu("menu");
-        menu.add("1.启用").addActionListener(e-> DBUtils.enabledScheduleTaskDemo(taskId));
-        menu.add("2.关闭").addActionListener(e-> DBUtils.disabledScheduleTaskDemo(taskId));
+        menu.add("1.启用").addActionListener(e-> DBUtils.enabledScheduleTaskDemo(taskId,monitor.selectRandomScheduledNodeId()));
+        menu.add("2.关闭").addActionListener(e -> DBUtils.disabledScheduleTaskDemo(taskId, null));
         menu.add("3.子任务列表").addActionListener(e -> {
             if (taskId != null && name != null) {
 
@@ -102,5 +104,7 @@ public class TaskTable extends DataTable {
     public String getTileString() {
         return "定时任务列表";
     }
+
+
 
 }

@@ -27,11 +27,14 @@ public class ScheduleTask {
     //最大执行次数，当任务被启动后，执行达到maxIterCnt次后，将会自动关闭。
     //如果需要执行一次性任务，该值可设置为1
     Integer maxIterCnt;
-//    String scheduledNodeId; // 该任务执行所在的调度节点Id
+    Integer scheduledNodeId;         // 该任务执行所在的调度节点Id
 
     Map<String, SubTask> subTaskMap; // 子任务对象列表 <name,task>
 
-    public ScheduleTask(String taskId, String name, Long period, TaskDAG taskDAG, boolean enabled, int status, Integer maxIterCnt, List<SubTask> subTasks) {
+    public ScheduleTask(String taskId, String name, Long period, TaskDAG taskDAG,
+                        boolean enabled, int status, Integer maxIterCnt,
+                        Integer scheduledNodeId,
+                        List<SubTask> subTasks) {
         this.taskId = taskId;
         this.name = name;
         this.period = period;
@@ -39,6 +42,7 @@ public class ScheduleTask {
         this.enabled = enabled;
         this.status = status;
         this.maxIterCnt = maxIterCnt;
+        this.scheduledNodeId = scheduledNodeId;
         subTaskMap = new HashMap<>();
         subTasks.forEach(subTask -> subTaskMap.put(subTask.getSubTaskName(), subTask));
     }
@@ -112,15 +116,15 @@ public class ScheduleTask {
     public void wakeUp() {
         getLatch().countDown();
     }
-
-    @Override
-    public String toString() {
-        return "ScheduleTask{" +
-                "name='" + name + '\'' +
-                ", enabled=" + enabled +
-                ", status=" + status +
-                '}';
-    }
+//
+//    @Override
+//    public String toString() {
+//        return "ScheduleTask{" +
+//                "name='" + name + '\'' +
+//                ", enabled=" + enabled +
+//                ", status=" + status +
+//                '}';
+//    }
 
 
 

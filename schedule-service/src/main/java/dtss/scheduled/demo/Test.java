@@ -4,7 +4,8 @@ import dtss.scheduled.schedule.ScheduleService;
 
 public class Test {
     public static void main(String[] args) {
-        new ScheduleService();
+        new ScheduleService(1);
+//        new ScheduleService(1);
     }
 
 }

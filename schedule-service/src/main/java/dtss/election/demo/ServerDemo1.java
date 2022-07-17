@@ -13,7 +13,7 @@ public class ServerDemo1 {
         ServiceRegistrationClient serRegCli = new ServiceRegistrationClient("1");
         serRegCli.connectZk();
         serRegCli.saveServerInfo();
-        serRegCli.registerAsLeader();
+        serRegCli.registerAsLeader(null);
         Thread.sleep(10000000);
 
     }

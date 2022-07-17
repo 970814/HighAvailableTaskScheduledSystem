@@ -7,15 +7,16 @@ drop table if exists `schedule_task`;
 drop table if exists `sub_task`;
 create table `schedule_task`
 (
-    `task_id`      varchar(64)   NOT NULL PRIMARY KEY, -- 该任务的唯一标识，使用zip包的SHA256值
-    `name`         varchar(64) DEFAULT NULL,           -- 任务名称，用于前端展示，可以重名，可修改
-    `period`       long        DEFAULT NULL,           -- 执行周期
-    `task_dag`     varchar(8192) NOT NULL,             -- 子任务间的执行依赖关系
-    `enabled`      bool          NOT NULL,             -- 任务总开关
-    `status`       int           NOT NULL,             -- 运行状态 结束0 等待1 运行2
-    `max_iter_cnt` int         DEFAULT NULL            -- 最大执行次数
+    `task_id`           varchar(64)   NOT NULL PRIMARY KEY, -- 该任务的唯一标识，使用zip包的SHA256值
+    `name`              varchar(64)   DEFAULT NULL,           -- 任务名称，用于前端展示，可以重名，可修改
+    `period`            long          DEFAULT NULL,           -- 执行周期
+    `task_dag`          varchar(8192) NOT NULL,             -- 子任务间的执行依赖关系
+    `enabled`           bool          NOT NULL,             -- 任务总开关
+    `status`            int           NOT NULL,             -- 运行状态 结束0 等待1 运行2
+    `max_iter_cnt`      int           DEFAULT NULL,            -- 最大执行次数
+    `scheduled_node_id` int           DEFAULT NULL             -- 任务所在的调度节点
 );
-
+-- String scheduledNodeId;
 create table `sub_task`
 (
     `task_pid`         varchar(64)   NOT NULL, -- 父任务id

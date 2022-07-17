@@ -58,11 +58,11 @@ public class DBUtils {
         return new ArrayList<>(records);
     }
 //    select task_pid taskPid,sub_task_id subTaskName,activation_value activationValue,start_threshold startThreshold,status,command from sub_task;
-
+//   "scheduled_node_id scheduledNodeId " +
     @SneakyThrows
     public static List<ScheduleTask> selectTaskList()  {
         QueryRunner queryRunner = new QueryRunner(DruidUtil.getDataSource());
-        String sql = "select task_id taskId,name,period,enabled,status from schedule_task";
+        String sql = "select task_id taskId,name,period,enabled,status,scheduled_node_id scheduledNodeId from schedule_task";
         return queryRunner.query(sql, new BeanListHandler<>(ScheduleTask.class));
     }
 
@@ -75,6 +75,8 @@ public class DBUtils {
 
     @SneakyThrows
     public static void main(String[] args) {
+
+
         List<ScheduleTask> scheduleTasks = selectTaskList();
         for (ScheduleTask scheduleTask : scheduleTasks) System.out.println(scheduleTask);
 
@@ -117,22 +119,24 @@ public class DBUtils {
         return queryRunner.query(sql, new BeanListHandler<>(ExecutionRecord.class), txId, taskId);
     }
 
+
     //    启用或关闭一个定时任务。 如果是启用，那么需要配置执行周期和最大执行次数，0表示无限制。
     @SneakyThrows
-    public static void enableScheduleTask(String taskId, boolean enabled, Long period, Integer maxIterCnt) {
+    public static void enableScheduleTask(String taskId, boolean enabled, Long period, Integer maxIterCnt,Integer scheduledNodeId) {
         QueryRunner queryRunner = new QueryRunner(DruidUtil.getDataSource());
         int rows = queryRunner
-                .update("update schedule_task set enabled = ?, period = ?, max_iter_cnt = ? where task_id = ?"
-                        , enabled, period, maxIterCnt, taskId);
+                .update("update schedule_task set enabled = ?, period = ?, max_iter_cnt = ?, scheduled_node_id = ? where task_id = ?"
+                        , enabled, period, maxIterCnt, scheduledNodeId, taskId);
         if (rows != 1) throw new RuntimeException("更新记录" + rows + "," + taskId);
     }
 
 
-    public static void enabledScheduleTaskDemo(String taskId) {
-        enableScheduleTask(taskId, true, 60 * 1000L, 0);
+    public static void enabledScheduleTaskDemo(String taskId,Integer scheduledNodeId) {
+        enableScheduleTask(taskId, true, 60 * 1000L, 0, scheduledNodeId);
+
     }
 
-    public static void disabledScheduleTaskDemo(String taskId) {
-        enableScheduleTask(taskId, false, 60 * 1000L, 0);
+    public static void disabledScheduleTaskDemo(String taskId,Integer scheduledNodeId) {
+        enableScheduleTask(taskId, false, 60 * 1000L, 0, scheduledNodeId);
     }
 }

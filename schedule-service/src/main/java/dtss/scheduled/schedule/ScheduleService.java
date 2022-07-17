@@ -16,29 +16,43 @@ public class ScheduleService {
     final ScheduledExecutorService scheduledExecutorService;
     Map<String, ScheduleTask> taskMap;// <taskId，ScheduleTask>
     Map<String, ScheduledFuture<?>> scheduledFutureMap; // 用于关闭任务
-
-    public ScheduleService() {
+    int scheduledNodeId;
+    public ScheduleService(int scheduledNodeId) {
+        this.scheduledNodeId = scheduledNodeId;
 //        一个是轮询数据库的线程
         scheduledExecutorService = Executors.newScheduledThreadPool(corePoolSize + 1);
         taskMap = new HashMap<>();
         scheduledFutureMap = new HashMap<>();
 //        启动监听数据库线程
         listenTaskStatus();
-        System.out.println("调度服务成功启动...");
+        System.out.println("调度服务" + scheduledNodeId + "成功启动...");
     }
+
+
+
 
     private void listenTaskStatus() {
         //  每隔10s查库并更新任务状态, 实现任务的启动、关闭、以及任务状态的转换
         scheduledExecutorService
-                .scheduleAtFixedRate(this::loadTaskStatusFromDB,
+                .scheduleAtFixedRate(this::run,
                         1, 10, TimeUnit.SECONDS);
+    }
+
+
+    public void run() {
+        try {
+            loadTaskStatusFromDB();
+        } catch (Throwable e) {
+            e.printStackTrace();
+            System.exit(1);
+        }
     }
 
     //    从数据库中载入任务状态
     @SneakyThrows //暂不考虑sql异常
     private void loadTaskStatusFromDB() {
         Map<String, ScheduleTask> newTaskMap = new HashMap<>();
-        TaskDbUtil.selectEnabledScheduleTask().forEach(scheduleTask -> newTaskMap.put(scheduleTask.getTaskId(), scheduleTask));
+        TaskDbUtil.selectEnabledScheduleTask(scheduledNodeId).forEach(scheduleTask -> newTaskMap.put(scheduleTask.getTaskId(), scheduleTask));
 
         update(taskMap, newTaskMap);//将数据库中的任务状态更新到内存
     }
