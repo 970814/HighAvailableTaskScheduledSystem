@@ -58,7 +58,6 @@ public class HighAvailableScheduleService {
         for (String id : monitor.getServerInfos()) ids.add(Integer.valueOf(id));
         System.out.println("当前可用调度节点列表 -> " + ids);
         List<ScheduleTask> scheduleTasks = TaskDbUtil.selectEnabledScheduleTask();
-//        System.out.println(scheduleTasks);
         for (ScheduleTask st : scheduleTasks) {
             if (st.getScheduledNodeId() == null || !ids.contains(st.getScheduledNodeId())) {
                 Integer id = monitor.selectRandomScheduledNodeId();

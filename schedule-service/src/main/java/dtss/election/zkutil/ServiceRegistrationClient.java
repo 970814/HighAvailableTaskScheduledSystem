@@ -28,15 +28,15 @@ public class ServiceRegistrationClient {
     }
 
 
-
+    boolean first = true;
     public void registerAsLeader(CallBack callBack) {
         ThreadPool.getThreadPool().execute(() -> {
             String path = rootPath + "/leaderNodeId";
             while (true) {
                 try {
-                    System.out.println("调度节点" + scheduledNodeId + "尝试成为leader");
+                    if (first) System.out.println("调度节点" + scheduledNodeId + "尝试成为leader");
                     if (zkClient.exists(path)) {
-                        System.out.println("leader节点已经存在");
+                        if (first) System.out.println("leader节点已经存在");
                     } else {
                         try {
                             zkClient.createEphemeral(path, scheduledNodeId);
@@ -49,15 +49,15 @@ public class ServiceRegistrationClient {
                         }
 
                     }
-                    Thread.sleep(10*1000);
+                    first = false;
+                    Thread.sleep(3 * 1000);
                 } catch (Throwable e) {
                     System.out.println("Exception -> " + e);
                     System.exit(1);
                 }
+
             }
         });
-
-
     }
 
 
