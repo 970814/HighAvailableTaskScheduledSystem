@@ -42,6 +42,11 @@ create table execution_record
 
 
 
+select sub_task_id, start_datetime, end_datetime, cost_time, result, tx_id, task_id
+from execution_record
+where task_id='523003BB4B9D9E3CF2877B785E18B6E18DD6A60E98636FDDEAD75A895F049204'
+  and sub_task_id is null order by start_datetime desc;
+
 show tables;
 select * from schedule_task;
 select * from sub_task;
@@ -94,3 +99,21 @@ where
                      from execution_record where sub_task_id is null
                      order by start_datetime desc)
 ;
+
+
+select sub_task_id subTaskId, start_datetime startDatetime, end_datetime endDatetime, cost_time costTime, result result, tx_id txId, task_id taskId from execution_record where task_id = '523003BB4B9D9E3CF2877B785E18B6E18DD6A60E98636FDDEAD75A895F049204' and sub_task_id is null;
+
+
+
+select task_id,name,period,enabled,status from schedule_task;
+select task_pid taskPid,sub_task_id subTaskName,activation_value activationValue,start_threshold startThreshold,status,command from sub_task;
+
+/*
+
+ taskPid
+subTaskName
+activationValue
+startThreshold
+status
+command
+ */

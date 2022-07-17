@@ -4,3 +4,6 @@ target/
 lib/
 .DS_Store
 regex/
+.mvn
+mvnw*
+*iml
