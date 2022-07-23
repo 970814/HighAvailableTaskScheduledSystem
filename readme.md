@@ -1,8 +1,7 @@
 # 高可用任务调度系统
 
 **架构图v0.2**
-
-![架构图](ArchitectureDiagram.png)
+<img width="1283" alt="ArchitectureDiagram" src="https://user-images.githubusercontent.com/19931702/180603146-dc0c6681-2bfc-41f4-b5a1-351502aa5d82.png">
 
 #### ~ 2022-07-03
 
