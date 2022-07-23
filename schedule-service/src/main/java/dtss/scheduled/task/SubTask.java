@@ -47,33 +47,35 @@ public class SubTask {
         TaskDbUtil.executeTransaction(conn -> {
             //        写入子任务运行记录
             TaskDbUtil.startExecutionRecord(conn, executionRecord = ExecutionRecord.start(txId, taskPid, subTaskName));
-            TaskDbUtil.updateSubTaskStatus(conn,taskPid, subTaskName, status = 2);//更新运行状态: 等待 -> 运行
+            TaskDbUtil.updateSubTaskStatus(conn, taskPid, subTaskName, status = 2);//更新运行状态: 等待 -> 运行
         });
+
+//        taskPid,subTaskName
 
 //        这里需要将子任务传输到 任务执行节点 进行执行
 //        先进行简单模拟
+//        String name = "子任务《" + taskPid.replaceFirst("^(...).*(...)$","$1...$2") + "-" + subTaskName + "》";
+//        System.out.println(name + "成功发生到执行节点");
+//        new Thread(() -> {
+//            try {
+//                Thread.sleep(100);
+//                SecureRandom rnd = new SecureRandom();
+//                int ses = rnd.nextInt(10)  + 1;//假设任务需要执行1～10s中
+//                System.out.println("------" + name + "执行中(预计需要)"+ses+"秒---------");
+//                Thread.sleep(ses * 1000);
+//                System.out.println(command);
+//                System.out.println("------" + name + "执行完成---------");
+//                Thread.sleep(100);
+//                //更新运行状态: 运行 -> 结束、指向的子任务激活值加一, 该事件可被轮询线程捕获
+//                TaskDbUtil.executeTransaction(conn -> {
+//                    TaskDbUtil.finishSubTask(conn, taskPid, subTaskName);
+//                    TaskDbUtil.endExecutionRecord(conn, executionRecord.finish());
+//                });
+//            } catch (InterruptedException e) {
+//                e.printStackTrace();
+//            }
+//        }).start();
 
-        String name = "子任务《" + taskPid.replaceFirst("^(...).*(...)$","$1...$2") + "-" + subTaskName + "》";
-        System.out.println(name + "成功发生到执行节点");
-        new Thread(() -> {
-            try {
-                Thread.sleep(100);
-                SecureRandom rnd = new SecureRandom();
-                int ses = rnd.nextInt(10)  + 1;//假设任务需要执行1～10s中
-                System.out.println("------" + name + "执行中(预计需要)"+ses+"秒---------");
-                Thread.sleep(ses * 1000);
-                System.out.println(command);
-                System.out.println("------" + name + "执行完成---------");
-                Thread.sleep(100);
-                //更新运行状态: 运行 -> 结束、指向的子任务激活值加一, 该事件可被轮询线程捕获
-                TaskDbUtil.executeTransaction(conn -> {
-                    TaskDbUtil.finishSubTask(conn, taskPid, subTaskName);
-                    TaskDbUtil.endExecutionRecord(conn, executionRecord.finish());
-                });
-            } catch (InterruptedException e) {
-                e.printStackTrace();
-            }
-        }).start();
     }
 
     public boolean isFinish() {

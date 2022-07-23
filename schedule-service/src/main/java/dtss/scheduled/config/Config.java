@@ -9,6 +9,8 @@ import org.yaml.snakeyaml.Yaml;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.nio.file.Files;
+import java.nio.file.Paths;
 import java.util.Map;
 
 @Slf4j
@@ -20,7 +22,7 @@ public class Config {
     final Config0 config0;
     public Config() throws IOException {
         Yaml yaml = new Yaml();
-        InputStream is2 = new FileInputStream("dtss.config.yaml");
+        InputStream is2 = Files.newInputStream(Paths.get("config.yaml"));
         final Map<String,Object> configMap = yaml.load(is2);
         final ObjectMapper objectMapper = new ObjectMapper();
         config0 = objectMapper.readValue(objectMapper.writeValueAsString(configMap), Config0.class);
