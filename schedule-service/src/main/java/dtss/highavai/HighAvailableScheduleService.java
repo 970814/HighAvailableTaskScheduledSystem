@@ -2,7 +2,7 @@ package dtss.highavai;
 
 import dtss.election.zkutil.ScheduleServiceMonitor;
 import dtss.election.zkutil.ServiceRegistrationClient;
-import dtss.scheduled.bean.ScheduleTask;
+import dtss.scheduled.task.ScheduleTask;
 import dtss.scheduled.db.TaskDbUtil;
 import dtss.scheduled.demo.DemoTaskToDb;
 import dtss.scheduled.schedule.ScheduleService;

@@ -1,11 +1,5 @@
-package dtss.worker;
+package dtss.worker.workerservice.worker;
 
-import lombok.SneakyThrows;
-
-import java.io.*;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Scanner;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
@@ -18,8 +12,11 @@ public class WorkerService {
 
     public static void main(String[] args) {
         WorkerService workerService = new WorkerService();
-//        workerService.runJob("./subJobA.sh");
-        
+        Task task = new Task(workerService, "./subJobA.sh");
+        int code = task.run();
+
+        System.out.println(code);
+        System.exit(0);
 
     }
 

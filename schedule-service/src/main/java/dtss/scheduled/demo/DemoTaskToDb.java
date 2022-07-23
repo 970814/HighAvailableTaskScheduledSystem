@@ -1,8 +1,8 @@
 package dtss.scheduled.demo;
 
 import dtss.scheduled.bean.Edge;
-import dtss.scheduled.bean.ScheduleTask;
-import dtss.scheduled.bean.SubTask;
+import dtss.scheduled.task.ScheduleTask;
+import dtss.scheduled.task.SubTask;
 import dtss.scheduled.bean.TaskDAG;
 import dtss.scheduled.db.TaskDbUtil;
 

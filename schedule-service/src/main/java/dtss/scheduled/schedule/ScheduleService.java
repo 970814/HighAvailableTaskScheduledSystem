@@ -1,7 +1,7 @@
 package dtss.scheduled.schedule;
 
-import dtss.scheduled.bean.ScheduleTask;
-import dtss.scheduled.bean.SubTask;
+import dtss.scheduled.task.ScheduleTask;
+import dtss.scheduled.task.SubTask;
 import dtss.scheduled.db.TaskDbUtil;
 import dtss.scheduled.util.Utils;
 import lombok.SneakyThrows;

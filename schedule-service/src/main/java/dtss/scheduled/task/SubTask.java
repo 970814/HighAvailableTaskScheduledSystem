@@ -1,5 +1,6 @@
-package dtss.scheduled.bean;
+package dtss.scheduled.task;
 
+import dtss.scheduled.bean.ExecutionRecord;
 import dtss.scheduled.db.TaskDbUtil;
 import lombok.AllArgsConstructor;
 import lombok.Data;

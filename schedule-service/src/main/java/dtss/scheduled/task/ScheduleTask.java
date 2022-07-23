@@ -1,5 +1,7 @@
-package dtss.scheduled.bean;
+package dtss.scheduled.task;
 
+import dtss.scheduled.bean.ExecutionRecord;
+import dtss.scheduled.bean.TaskDAG;
 import dtss.scheduled.db.TaskDbUtil;
 import dtss.scheduled.util.Utils;
 import lombok.Data;
@@ -82,7 +84,7 @@ public class ScheduleTask {
                     .filter(subTask -> subTask.getStatus() == 1)                                    // 检索出状态为等待
                     .filter(subTask -> subTask.getActivationValue() == subTask.getStartThreshold()) //且激活值等与启动阈值
                     .collect(Collectors.toList())                                                   // 的就绪子任务
-                    .forEach(subTask -> subTask.run(executionRecord.txId));                         //异步执行所有子任务
+                    .forEach(subTask -> subTask.run(executionRecord.getTxId()));                         //异步执行所有子任务
             latch.await();                                                                          //阻塞,等待任务状态变化驱动 (暂不处理中断异常)
         }
         finish(); //至此，所有子任务执行完成
