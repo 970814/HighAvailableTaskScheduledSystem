@@ -36,10 +36,10 @@ public class Task implements Callable<Result> {
         Process process = Runtime.getRuntime().exec(new String[]{"/bin/sh", "-c", command}, null, workDir);
         collectLog(process.getInputStream(), process.getErrorStream());
         return new Result(
-                taskPid, subTaskName,                   //任务Id
-                process.waitFor(),                      //任务返回值
-                (System.nanoTime() - t0) / 1000_1000,   //耗时(毫秒)
-                Utils.currentCSTDateTimeStr()
+                txId, taskPid, subTaskName,                         //运行记录id
+                Utils.currentCSTDateTimeStr(),                      //完成时间
+                (System.nanoTime() - t0) / 1000_1000,               //耗时(毫秒)
+                process.waitFor()                                   //任务返回值
         );
     }
 

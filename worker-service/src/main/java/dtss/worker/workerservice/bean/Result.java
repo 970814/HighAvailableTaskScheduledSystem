@@ -8,9 +8,12 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor
 @AllArgsConstructor
 public class Result {
+    String txId;
     String taskPid;
     String subTaskName;
-    int exitCode;
-    long costTm;
     String endDatetime;
+    long costTime;
+    int exitCode;
+
+
 }
