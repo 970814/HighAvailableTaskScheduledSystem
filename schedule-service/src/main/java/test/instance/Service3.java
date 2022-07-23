@@ -1,4 +1,4 @@
-package dtss.highavai.instance;
+package test.instance;
 
 import dtss.highavai.HighAvailableScheduleService;
 

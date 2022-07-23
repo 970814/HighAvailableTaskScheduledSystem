@@ -36,7 +36,6 @@ public class HighAvailableScheduleService {
     }
 
     private void monitorScheduleServiceStatus() {
-        System.out.println("callback");
         scheduledExecutorService
                 .scheduleAtFixedRate(this::run,
                         1, 10, TimeUnit.SECONDS);
@@ -61,9 +60,12 @@ public class HighAvailableScheduleService {
         for (ScheduleTask st : scheduleTasks) {
             if (st.getScheduledNodeId() == null || !ids.contains(st.getScheduledNodeId())) {
                 Integer id = monitor.selectRandomScheduledNodeId();
-                if (id != null)
+                if (id != null) {
                     TaskDbUtil.executeTransaction(conn -> DemoTaskToDb.enabledScheduleTaskDemo(conn, st.getTaskId(), id));
+                    System.out.println("由于" + st.getScheduledNodeId() + "号节点不可用，将任务《" + st.getName() + "》转移到" + id + "号节点继续执行");
+                }
             }
         }
     }
 }
+

@@ -5,6 +5,7 @@ import lombok.SneakyThrows;
 import org.I0Itec.zkclient.ZkClient;
 
 import java.util.*;
+import java.util.function.Function;
 
 //用于访问zookeeper 获取当前可用的计算节点列表
 public class ScheduleServiceMonitor {
@@ -21,15 +22,27 @@ public class ScheduleServiceMonitor {
         rootPath = "/schedule-service";
     }
 
+    Action action;
+
+    public void setAction(Action action) {
+        this.action = action;
+    }
+
     public void connectZk() {
         zkClient = new ZkClient("localhost:2181");
-        List<String> children = zkClient.getChildren(rootPath);
-        parseServerInfo(children);
+        updateServerList();
         zkClient.subscribeChildChanges(rootPath, (path, list) -> {
             parseServerInfo(list);
             System.out.println("调度节点变化 " + path + " 发生改变 -> " + serverInfos);
         });
+    }
 
+    public void updateServerList() {
+        parseServerInfo(zkClient.getChildren(rootPath));
+    }
+
+    public interface Action {
+        void callBack(List<String> serIds, String leaId);
     }
 
     //    同步锁
@@ -45,6 +58,7 @@ public class ScheduleServiceMonitor {
             }
         }
         serverInfos = infos;
+        if (action != null) action.callBack(getServerInfos(), getLeaderId());
     }
 
     public synchronized List<String> getServerInfos() {

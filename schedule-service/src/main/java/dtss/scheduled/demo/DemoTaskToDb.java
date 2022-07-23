@@ -53,8 +53,8 @@ public class DemoTaskToDb {
         return taskId;
     }
 
-    public static void enabledScheduleTaskDemo(Connection conn,String taskId, Integer scheduledNodeId)  {
-        TaskDbUtil.enableScheduleTask(conn,taskId, true, 60 * 1000L, 0, scheduledNodeId);
+    public static void enabledScheduleTaskDemo(Connection conn, String taskId, Integer scheduledNodeId) {
+        TaskDbUtil.enableScheduleTask(conn, taskId, true, 60 * 1000L, 0, scheduledNodeId);
     }
     public static void disabledScheduleTaskDemo(Connection conn,String taskId,Integer scheduledNodeId)  {
         TaskDbUtil.enableScheduleTask(conn,taskId, false, 60 * 1000L, 0, scheduledNodeId);

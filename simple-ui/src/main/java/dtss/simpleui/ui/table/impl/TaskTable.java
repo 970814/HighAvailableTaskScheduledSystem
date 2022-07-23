@@ -25,9 +25,16 @@ public class TaskTable extends DataTable {
     String taskId;
     String name;
     int selectedRow;
-    ScheduleServiceMonitor monitor = new ScheduleServiceMonitor();
+    ScheduleServiceMonitor monitor;
+
+    public ScheduleServiceMonitor getMonitor() {
+        if (monitor == null) {
+            monitor = tableWindows.getMonitor();
+        }
+        return monitor;
+    }
+
     public TaskTable() {
-        monitor.connectZk();
         GroupLayout contentPaneLayout = new GroupLayout(this);
         setLayout(contentPaneLayout);
         JScrollPane scrollPane = new JScrollPane();
@@ -54,7 +61,7 @@ public class TaskTable extends DataTable {
         jTable.getTableHeader().setDefaultRenderer(tcr);
 
         JPopupMenu menu = new JPopupMenu("menu");
-        menu.add("1.启用").addActionListener(e-> DBUtils.enabledScheduleTaskDemo(taskId,monitor.selectRandomScheduledNodeId()));
+        menu.add("1.启用").addActionListener(e -> DBUtils.enabledScheduleTaskDemo(taskId, getMonitor().selectRandomScheduledNodeId()));
         menu.add("2.关闭").addActionListener(e -> DBUtils.disabledScheduleTaskDemo(taskId, null));
         menu.add("3.子任务列表").addActionListener(e -> {
             if (taskId != null && name != null) {
