@@ -37,8 +37,9 @@ public class DBUtils {
                 "start_datetime startDatetime, " +
                 "end_datetime endDatetime, " +
                 "cost_time costTime, " +
-                "result result, " +
+                "result, " +
                 "tx_id txId, " +
+                "retry_count retryCount, " +
                 "task_id taskId " +
                 "from execution_record " +
                 "where tx_id = ?  and task_id = ? " +
@@ -69,7 +70,7 @@ public class DBUtils {
     @SneakyThrows
     public static List<SubTask> selectSubTaskList(String taskPid) {
         QueryRunner queryRunner = new QueryRunner(DruidUtil.getDataSource());
-        String sql = "select task_pid taskPid,sub_task_id subTaskName,activation_value activationValue,start_threshold startThreshold,status,command from sub_task where task_pid = ?";
+        String sql = "select task_pid taskPid,sub_task_id subTaskName,activation_value activationValue,start_threshold startThreshold,status,command,retry_count retryCount from sub_task where task_pid = ?";
         return queryRunner.query(sql, new BeanListHandler<>(SubTask.class), taskPid);
     }
 
@@ -93,8 +94,9 @@ public class DBUtils {
                 "start_datetime startDatetime, " +
                 "end_datetime endDatetime, " +
                 "cost_time costTime, " +
-                "result result, " +
+                "result, " +
                 "tx_id txId, " +
+                "retry_count retryCount, " +
                 "task_id taskId " +
                 "from execution_record " +
                 "where task_id = ? " +
@@ -109,9 +111,11 @@ public class DBUtils {
                 "start_datetime startDatetime, " +
                 "end_datetime endDatetime, " +
                 "cost_time costTime, " +
-                "result result, " +
+                "result, " +
                 "tx_id txId, " +
-                "task_id taskId " +
+                "retry_count retryCount, " +
+                "task_id taskId, " +
+                "log " +
                 "from execution_record " +
                 "where tx_id = ?  and task_id = ? " +
                 "and sub_task_id is not null order by startDatetime";

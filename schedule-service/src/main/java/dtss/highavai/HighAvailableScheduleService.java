@@ -62,7 +62,10 @@ public class HighAvailableScheduleService {
                 Integer id = monitor.selectRandomScheduledNodeId();
                 if (id != null) {
                     TaskDbUtil.executeTransaction(conn -> DemoTaskToDb.enabledScheduleTaskDemo(conn, st.getTaskId(), id));
-                    System.out.println("由于" + st.getScheduledNodeId() + "号节点不可用，将任务《" + st.getName() + "》转移到" + id + "号节点继续执行");
+
+                    System.out.println(
+                            (st.getScheduledNodeId() == null ? "任务未分配到节点上" : st.getScheduledNodeId() + "号节点不可用")
+                                    + ", 将任务《" + st.getName() + "》分配到" + id + "号节点继续执行");
                 }
             }
         }

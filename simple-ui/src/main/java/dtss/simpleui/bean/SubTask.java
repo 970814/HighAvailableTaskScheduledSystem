@@ -20,6 +20,7 @@ public class SubTask {
     int startThreshold; //启动阈值
     int status; // 运行状态     结束0 等待1 运行2
     String command;//子任务的命令
+    Integer retryCount;
 
     public static List<String> getColumnNames() {
         return Arrays.asList(
@@ -27,6 +28,7 @@ public class SubTask {
                 "激活值",
                 "启动阈值",
                 "运行状态",
+                "重试次数",
                 "执行命令"
         );
     }
@@ -37,6 +39,7 @@ public class SubTask {
                 String.valueOf(activationValue),
                 String.valueOf(startThreshold),
                 status == 2 ? "运行" : status == 1 ? "等待" : "结束",
+                String.valueOf(retryCount),
                 command == null ? "/" : command,
         };
     }

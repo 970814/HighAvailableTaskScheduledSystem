@@ -4,6 +4,7 @@ package dtss.election.zkutil;
 import lombok.SneakyThrows;
 import org.I0Itec.zkclient.ZkClient;
 
+import java.security.SecureRandom;
 import java.util.*;
 
 //用于访问zookeeper 获取当前可用的计算节点列表
@@ -65,10 +66,10 @@ public class ScheduleServiceMonitor {
 
     //    随机挑选一个节点id
     public  Integer selectRandomScheduledNodeId() {
-        Random random = new Random();
+        SecureRandom secRnd = new SecureRandom();
         List<String> ids = getServerInfos();
 
-        return ids.size() == 0 ? null : Integer.valueOf(ids.get(random.nextInt(ids.size())));
+        return ids.size() == 0 ? null : Integer.valueOf(ids.get(secRnd.nextInt(ids.size())));
     }
 
 }

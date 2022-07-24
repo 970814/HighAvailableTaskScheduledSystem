@@ -69,6 +69,13 @@
             <artifactId>zkclient</artifactId>
             <version>0.2</version>
         </dependency>
+
+        <!--httpclient 依赖-->
+        <dependency>
+            <groupId>com.squareup.okhttp3</groupId>
+            <artifactId>okhttp</artifactId>
+            <version>3.10.0</version>
+        </dependency>
     </dependencies>
 
 </project>

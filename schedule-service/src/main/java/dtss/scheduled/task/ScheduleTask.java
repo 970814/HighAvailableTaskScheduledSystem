@@ -58,7 +58,7 @@ public class ScheduleTask {
 
         TaskDbUtil.executeTransaction(conn -> {
             //        写入运行记录
-            TaskDbUtil.startExecutionRecord(conn, executionRecord = ExecutionRecord.start(Utils.generateRandomTransactionId(), taskId, null));
+            TaskDbUtil.startExecutionRecord(conn, executionRecord = ExecutionRecord.start(Utils.generateRandomTransactionId(), taskId, null, 0));
             TaskDbUtil.updateTaskToStartState(conn, this);
         });
 
@@ -66,6 +66,7 @@ public class ScheduleTask {
         for (var subTask : subTaskMap.values()) {
             subTask.status = 1; // 子任务设置为等待状态
             subTask.activationValue = 0; //重置激活值
+            subTask.retryCount = 0;
         }
         status = 2; // 设置为运行状态
     }
@@ -76,26 +77,41 @@ public class ScheduleTask {
     @SneakyThrows
     public void run0() {
         start();
+        int exitCode = 0;
         log.info("---------" + name + "(" + taskId.replaceFirst("^(...).*(...)$", "$1...$2") + ")开始执行------------------------");
         var subTasks = subTaskMap.values();
-        while (subTasks.stream().anyMatch(subTask -> subTask.getStatus() != 0)) { // 只要还有任何一个子任务未完成
+        final int maxTryCount = 3;
+        while (
+                subTasks.stream()
+                        .filter(subTask -> subTask.getStatus() != -1 || subTask.getRetryCount() < maxTryCount)  // 任务最多重试3次
+                        .anyMatch(subTask -> subTask.getStatus() != 0)   // 只要还有任何一个子任务未完成
+        ) {
             latch = new CountDownLatch(1);
             subTasks.stream()
-                    .filter(subTask -> subTask.getStatus() == 1)                                    // 检索出状态为等待
-                    .filter(subTask -> subTask.getActivationValue() == subTask.getStartThreshold()) //且激活值等与启动阈值
+                    .filter(subTask ->
+                            subTask.getStatus() == 1                                                // 状态 = 等待 && 激活值 = 启动阈值
+                                    && subTask.getActivationValue() == subTask.getStartThreshold()
+                                    || subTask.getStatus() == -1                                    //执行失败的子任务
+                                    && subTask.getRetryCount() < maxTryCount)
                     .collect(Collectors.toList())                                                   // 的就绪子任务
-                    .forEach(subTask -> subTask.run(executionRecord.getTxId()));                         //异步执行所有子任务
-            latch.await();                                                                          //阻塞,等待任务状态变化驱动 (暂不处理中断异常)
+                    .forEach(subTask -> subTask.run(executionRecord.getTxId()));                    //异步执行所有子任务
+
+            if (subTasks.stream().noneMatch(subTask -> subTask.getStatus() == 2)
+                    && subTasks.stream().anyMatch(subTask -> subTask.getStatus() == -1 || subTask.getRetryCount() >= maxTryCount)) {
+//                如果没有了正在运行的任务 且 某个任务超出最大重试次数,任务终止
+                exitCode = 1;
+                break;
+            } else
+                latch.await();                                                                          //阻塞,等待任务状态变化驱动 (暂不处理中断异常)
         }
-        finish(); //至此，所有子任务执行完成
+        finish(exitCode); //至此，所有子任务执行完成
         log.info("---------" + name + "(" + taskId.replaceFirst("^(...).*(...)$", "$1...$2") + ")执行完成------------------------");
     }
 
     //    定时任务执行结束
-    private void finish() {
-
+    private void finish(int exitCode) {
         TaskDbUtil.executeTransaction(conn -> {
-            TaskDbUtil.endExecutionRecord(conn, executionRecord.finish());
+            TaskDbUtil.endExecutionRecord(conn, executionRecord.finish(exitCode));
             TaskDbUtil.updateTaskStatus(conn, getTaskId(), status = 0); //定时任务状态设置为结束
         });
 

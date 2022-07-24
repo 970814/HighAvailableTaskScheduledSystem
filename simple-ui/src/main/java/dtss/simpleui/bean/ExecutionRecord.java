@@ -18,11 +18,14 @@ public class ExecutionRecord {
     String endDatetime;
     Integer costTime; //执行花费时间(秒)
     String result;
+    Integer retryCount;
+    String log;
 
     public static List<String> getTaskColumnNames() {
         return Arrays.asList(
                 "事务Id",
                 "任务Id",
+//                "重试次数",
                 "开始时间",
                 "结束时间",
                 "执行消耗时间",
@@ -34,6 +37,7 @@ public class ExecutionRecord {
         return new String[]{
                 txId == null ? "/" : txId.replaceFirst("^(...).*(...)$","$1...$2"),
                 taskId == null ? "/" : taskId.replaceFirst("^(...).*(...)$","$1...$2"),
+//                String.valueOf(retryCount),
                 startDatetime == null ? "/" : startDatetime,
                 endDatetime == null ? "/" : endDatetime,
                 costTime == null ? "/" : String.valueOf(costTime),
@@ -46,10 +50,12 @@ public class ExecutionRecord {
                 "事务Id",
                 "任务Id",
                 "子任务Id",
+                "重试次数",
                 "开始时间",
                 "结束时间",
-                "执行消耗时间",
-                "执行结果"
+                "耗时",
+                "执行结果",
+                "日志"
         );
     }
 
@@ -70,10 +76,12 @@ public class ExecutionRecord {
                 txId == null ? "/" : txId.replaceFirst("^(...).*(...)$","$1...$2"),
                 taskId == null ? "/" : taskId.replaceFirst("^(...).*(...)$","$1...$2"),
                 subTaskId == null ? "/" : subTaskId,
+                String.valueOf(retryCount),
                 startDatetime == null ? "/" : startDatetime,
                 endDatetime == null ? "/" : endDatetime,
                 costTime == null ? "/" : String.valueOf(costTime),
                 result == null ? "/" : result,
+                log == null ? "/" : log,
         };
     }
 

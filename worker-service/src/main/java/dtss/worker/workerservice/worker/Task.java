@@ -15,16 +15,22 @@ public class Task implements Callable<Result> {
     String txId;
     String taskPid;
     String subTaskName;
+    int retryCount;
     WorkerService context;
     String command;
     StringBuilder logCollector;
     CountDownLatch latch;
 
-    public Task(WorkerService context, String txId, String taskPid, String subTaskName) {
+    File workDir;
+
+    public Task(WorkerService context, String txId, String taskPid, String subTaskName, int retryCount, String command) {
         this.context = context;
         this.txId = txId;
         this.taskPid = taskPid;
         this.subTaskName = subTaskName;
+        this.retryCount = retryCount;
+        workDir = new File(context.getBaseWorkDir(), taskPid);
+        this.command = command;
     }
 
     @Override
@@ -32,14 +38,14 @@ public class Task implements Callable<Result> {
     public Result call() {
         long t0 = System.nanoTime();
         logCollector = new StringBuilder();
-        File workDir = new File("/Users/liumingxing/IdeaProjects/DistributeTaskScheduleSystem/workdir");
         Process process = Runtime.getRuntime().exec(new String[]{"/bin/sh", "-c", command}, null, workDir);
         collectLog(process.getInputStream(), process.getErrorStream());
         return new Result(
-                txId, taskPid, subTaskName,                         //运行记录id
+                txId, taskPid, subTaskName, retryCount,             //运行记录id
                 Utils.currentCSTDateTimeStr(),                      //完成时间
                 (System.nanoTime() - t0) / 1000_1000,               //耗时(毫秒)
-                process.waitFor()                                   //任务返回值
+                process.waitFor(),                                  //任务返回值
+                logCollector.toString()                             //任务日志
         );
     }
 
@@ -64,7 +70,5 @@ public class Task implements Callable<Result> {
             latch.countDown();
         }
     }
-
-
 
 }

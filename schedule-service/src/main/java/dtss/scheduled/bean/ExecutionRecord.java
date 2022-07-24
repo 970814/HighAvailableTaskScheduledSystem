@@ -17,26 +17,29 @@ public class ExecutionRecord {
 
     long startTm;
     long endTm;
+    int retryCount;
 
-    public static ExecutionRecord start(String txId, String taskId, String subTaskId) {
-        return new ExecutionRecord(txId, taskId, subTaskId, "运行");
+    public static ExecutionRecord start(String txId, String taskId, String subTaskId, int retryCount) {
+        return new ExecutionRecord(txId, taskId, subTaskId, "运行", retryCount);
     }
 
-    public ExecutionRecord finish() {
-        return finish(System.currentTimeMillis(), "成功");
+
+    public ExecutionRecord finish(int exitCode) {
+        return finish(System.currentTimeMillis(), exitCode == 0 ? "成功" : "失败");
     }
 
-    public ExecutionRecord(String txId, String taskId, String subTaskId, String result) {
-        this(txId, taskId, subTaskId, System.currentTimeMillis(), result);
+    public ExecutionRecord(String txId, String taskId, String subTaskId, String result, int retryCount) {
+        this(txId, taskId, subTaskId, System.currentTimeMillis(), result, retryCount);
     }
 
-    public ExecutionRecord(String txId, String taskId, String subTaskId, long startTm, String result) {
+    public ExecutionRecord(String txId, String taskId, String subTaskId, long startTm, String result, int retryCount) {
         this.txId = txId;
         this.taskId = taskId;
         this.subTaskId = subTaskId;
         startDatetime = Utils.currentCSTDateTimeStr(startTm);
         this.result = result;
         this.startTm = startTm;
+        this.retryCount = retryCount;
     }
 
 

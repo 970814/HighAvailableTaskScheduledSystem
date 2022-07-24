@@ -10,7 +10,6 @@ import org.apache.commons.dbutils.handlers.ScalarHandler;
 
 import java.sql.Connection;
 import java.sql.SQLException;
-import java.util.Arrays;
 import java.util.List;
 import java.util.function.Consumer;
 
@@ -19,9 +18,10 @@ public class TaskDbUtil {
         QueryRunner queryRunner = new QueryRunner();
         int rows = 0;
         try {
-            rows = queryRunner.update(conn, "update execution_record set end_datetime = ?, result = ?, cost_time = ? " +
-                    "where tx_id = ? and task_id = ? and sub_task_id = ?" ,
-                    er.getEndDatetime(), er.getResult(), er.getCostTime(), er.getTxId(), er.getTaskId(), er.getSubTaskId());
+            rows = queryRunner.update(conn, "update execution_record set end_datetime = ?, result = ?, cost_time = ?, log = ? " +
+                            "where tx_id = ? and task_id = ? and sub_task_id = ? and retry_count = ?",
+                    er.getEndDatetime(), er.getResult(), er.getCostTime(), er.getLog(),
+                    er.getTxId(), er.getTaskId(), er.getSubTaskId(), er.getRetryCount());
         } catch (SQLException e) {
             e.printStackTrace();
         }
@@ -29,13 +29,18 @@ public class TaskDbUtil {
     }
 
     //更新运行状态: 运行 -> 结束、指向的子任务激活值加一
-    public static void finishSubTask(Connection conn, String taskPid, String subTaskName) {
+    public static void finishSubTask(Connection conn, String taskPid, String subTaskName, int status) {
+
 //        事务（原子性）
-        updateSubTaskStatus(conn, taskPid, subTaskName, 0);//设置为结束运行状态
-        incrementActivationValue(conn, taskPid,
-                selectTaskDAGBy(taskPid)
-                        .getSubTaskNamesDrivenBy(subTaskName));//激活值+1
+        updateSubTaskStatus(conn, taskPid, subTaskName, status, status == 0 ? 0 : null);//设置为结束运行状态
+        if (status == 0)  //如果正常结束
+            incrementActivationValue(conn, taskPid,
+                    selectTaskDAGBy(taskPid)
+                            .getSubTaskNamesDrivenBy(subTaskName));//激活值+1
     }
+
+
+
 
     //    执行的所有子任务激活值加一
     @SneakyThrows
@@ -51,14 +56,28 @@ public class TaskDbUtil {
         if (rows != subTaskNames.size())
             throw new RuntimeException("增加激活阈值失败：" + subTaskNames);
     }
+
     //更新运行状态
     @SneakyThrows
-    public static void updateSubTaskStatus(Connection conn, String taskPid, String subTaskName, int status) {
+    public static void updateSubTaskStatus(Connection conn, String taskPid, String subTaskName, int status, Integer retryCount) {
         QueryRunner queryRunner = new QueryRunner();
-        int rows = queryRunner.update(conn,"update sub_task set status = ? " +
-                "where task_pid = ? and sub_task_id = ?", status, taskPid, subTaskName);
+        Object[] params;
+        String endSql;
+        if (retryCount == null) {
+            endSql = "";
+            params = new Object[]{status, taskPid, subTaskName};
+        } else {
+            endSql = ", retry_count = ? ";
+            params = new Object[]{status, retryCount, taskPid, subTaskName};
+        }
+
+        int rows = queryRunner.update(conn, "update sub_task set status = ? " + endSql +
+                "where task_pid = ? and sub_task_id = ?", params);
         if (rows != 1) throw new RuntimeException("更新记录" + rows + ":" + taskPid + "." + subTaskName + "." + status);
     }
+
+
+
 
     private static String getPlaceHolder(int n) {
         StringBuilder placeholder = new StringBuilder("(");

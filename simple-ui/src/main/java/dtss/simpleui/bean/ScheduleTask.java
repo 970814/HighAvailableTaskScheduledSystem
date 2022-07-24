@@ -20,6 +20,7 @@ public class ScheduleTask {
     int status;    // 运行状态 结束0 运行2   不需要等待状态 等待1
     Integer scheduledNodeId;         // 该任务执行所在的调度节点Id
 
+
     public static List<String> getColumnNames() {
         return Arrays.asList(
                 "任务名称",

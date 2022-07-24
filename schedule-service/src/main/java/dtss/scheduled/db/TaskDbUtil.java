@@ -20,19 +20,19 @@ import java.util.function.Consumer;
 public class TaskDbUtil {
 
 
-//    将定时任务写入数据库
+    //    将定时任务写入数据库
     @SneakyThrows
-    public static void writeTaskToDb(ScheduleTask st) {
+    public static void writeTaskToDb(Connection conn, ScheduleTask st) {
         Collection<SubTask> subTasks = st.getSubTaskMap().values();
-        QueryRunner queryRunner = new QueryRunner(DruidUtil.getDataSource());
+        QueryRunner queryRunner = new QueryRunner();
         ObjectMapper objectMapper = new ObjectMapper();
         String dagStr = objectMapper.writeValueAsString(st.getTaskDAG());
-        int rows = queryRunner.update("insert into schedule_task(task_id,name,period,task_dag,enabled,status,max_iter_cnt) values(?,?,?,?,?,?,?)",
+        int rows = queryRunner.update(conn, "insert into schedule_task(task_id,name,period,task_dag,enabled,status,max_iter_cnt) values(?,?,?,?,?,?,?)",
                 st.getTaskId(), st.getName(), st.getPeriod(), dagStr, st.isEnabled(), st.getStatus(), st.getMaxIterCnt());
         if (rows != 1) throw new RuntimeException("写入数据失败: rows=" + rows);
         for (SubTask t : subTasks) {
-            rows = queryRunner.update("insert into sub_task(task_pid,sub_task_id,activation_value,start_threshold,status,command) values (?,?,?,?,?,?)",
-                    t.getTaskPid(), t.getSubTaskName(), t.getActivationValue(), t.getStartThreshold(),  t.getStatus(), t.getCommand());
+            rows = queryRunner.update(conn, "insert into sub_task(task_pid,sub_task_id,activation_value,start_threshold,status,command,retry_count) values (?,?,?,?,?,?,?)",
+                    t.getTaskPid(), t.getSubTaskName(), t.getActivationValue(), t.getStartThreshold(), t.getStatus(), t.getCommand(), t.getRetryCount());
             if (rows != 1) throw new RuntimeException("写入数据失败: rows=" + rows);
         }
     }
@@ -124,7 +124,7 @@ public class TaskDbUtil {
     private static List<SubTask> selectSubTasks(String taskPid) {
         QueryRunner queryRunner = new QueryRunner(DruidUtil.getDataSource());
         List<Map<String, Object>> mapList = queryRunner
-                .query("select task_pid,sub_task_id,activation_value,start_threshold,status,command from sub_task where task_pid ='"
+                .query("select task_pid,sub_task_id,activation_value,start_threshold,status,command,retry_count from sub_task where task_pid ='"
                                 + taskPid + "'",
                         new MapListHandler());
         List<SubTask> subTasks = new ArrayList<>();
@@ -134,7 +134,8 @@ public class TaskDbUtil {
             int start_threshold = (int) map.get("start_threshold");
             int status = (int) map.get("status");
             String command = (String) map.get("command");
-            subTasks.add(new SubTask(taskPid, sub_task_id, activation_value, start_threshold, status, command));
+            Integer retryCount = (Integer) map.get("retry_count");
+            subTasks.add(new SubTask(taskPid, sub_task_id, activation_value, start_threshold, status, command, retryCount));
         }
         return subTasks;
     }
@@ -177,20 +178,34 @@ public class TaskDbUtil {
     }
 
     //更新运行状态: 运行 -> 结束、指向的子任务激活值加一
-    public static void finishSubTask(Connection conn, String taskPid, String subTaskName) {
+    public static void finishSubTask(Connection conn, String taskPid, String subTaskName, int status) {
 //        事务（原子性）
-        updateSubTaskStatus(conn, taskPid, subTaskName, 0);//设置为结束运行状态
-        incrementActivationValue(conn, taskPid,
-                selectTaskDAGBy(taskPid)
-                        .getSubTaskNamesDrivenBy(subTaskName));//激活值+1
+        updateSubTaskStatus(conn, taskPid, subTaskName, status, status == 0 ? 0 : null); //设置为结束状态
+        if (status == 0)  //如果正常结束
+            incrementActivationValue(conn, taskPid,
+                    selectTaskDAGBy(taskPid)
+                            .getSubTaskNamesDrivenBy(subTaskName));//激活值+1
     }
+
+
+
 
     //更新运行状态
     @SneakyThrows
-    public static void updateSubTaskStatus(Connection conn, String taskPid, String subTaskName, int status) {
+    public static void updateSubTaskStatus(Connection conn, String taskPid, String subTaskName, int status, Integer retryCount) {
         QueryRunner queryRunner = new QueryRunner();
-        int rows = queryRunner.update(conn,"update sub_task set status = ? " +
-                "where task_pid = ? and sub_task_id = ?", status, taskPid, subTaskName);
+        Object[] params;
+        String endSql;
+        if (retryCount == null) {
+            endSql = "";
+            params = new Object[]{status, taskPid, subTaskName};
+        } else {
+            endSql = ", retry_count = ? ";
+            params = new Object[]{status, retryCount, taskPid, subTaskName};
+        }
+
+        int rows = queryRunner.update(conn, "update sub_task set status = ? " + endSql +
+                "where task_pid = ? and sub_task_id = ?", params);
         if (rows != 1) throw new RuntimeException("更新记录" + rows + ":" + taskPid + "." + subTaskName + "." + status);
     }
 
@@ -204,7 +219,7 @@ public class TaskDbUtil {
         Object[] params = new Object[subTaskNames.size() + 1];
         params[0] = taskPid;
         for (int i = 0; i < subTaskNames.size(); i++) params[i + 1] = subTaskNames.get(i);
-        int rows = queryRunner.update(conn, "update sub_task set activation_value = 0, status = 1 " +
+        int rows = queryRunner.update(conn, "update sub_task set activation_value = 0, status = 1, retry_count = 0 " +
                 "where task_pid = ? and sub_task_id in " + placeholder, params);
         if (rows != subTaskNames.size())
             throw new RuntimeException("增加激活阈值失败：" + subTaskNames);
@@ -220,7 +235,7 @@ public class TaskDbUtil {
     public static void updateTaskToStartState(Connection conn, ScheduleTask scheduleTask) {
 //        事务（原子性）
         updateTaskStatus(conn, scheduleTask.getTaskId(), 2);
-        resetActivationValueAndSetWaitStatus(conn,scheduleTask.getTaskId(), scheduleTask.getTaskDAG().getSubTaskNames());
+        resetActivationValueAndSetWaitStatus(conn, scheduleTask.getTaskId(), scheduleTask.getTaskDAG().getSubTaskNames());
     }
 
 
@@ -237,17 +252,17 @@ public class TaskDbUtil {
     @SneakyThrows
     public static void startExecutionRecord(Connection txConn, ExecutionRecord er) {
         QueryRunner queryRunner = new QueryRunner();
-        int rows = queryRunner.update(txConn, "insert into execution_record(tx_id,task_id,sub_task_id,start_datetime,end_datetime,result)" +
-                        " values(?,?,?,?,?,?)",
+        int rows = queryRunner.update(txConn, "insert into execution_record(tx_id,task_id,sub_task_id,start_datetime,end_datetime,result,retry_count)" +
+                        " values(?,?,?,?,?,?,?)",
                 er.getTxId(), er.getTaskId(), er.getSubTaskId(), er.getStartDatetime(), er.getEndDatetime(),
-                er.getResult());
+                er.getResult(), er.getRetryCount());
         if (rows != 1) throw new RuntimeException("写入数据失败: rows=" + rows);
     }
 
     public static void endExecutionRecord(Connection conn, ExecutionRecord er) {
         QueryRunner queryRunner = new QueryRunner();
 
-        Object[] params = new Object[]{er.getEndDatetime(), er.getResult(), er.getCostTime(), er.getTxId(), er.getTaskId(), er.getSubTaskId()};
+        Object[] params = new Object[]{er.getEndDatetime(), er.getResult(), er.getCostTime(), er.getTxId(), er.getTaskId(), er.getRetryCount(), er.getSubTaskId()};
 
         String endSql = "= ?";//子任务判断
         if (er.getSubTaskId() == null) {
@@ -257,12 +272,14 @@ public class TaskDbUtil {
         int rows = 0;
         try {
             rows = queryRunner.update(conn, "update execution_record set end_datetime = ?, result = ?, cost_time = ? " +
-                    "where tx_id = ? and task_id = ? and sub_task_id " + endSql, params);
+                    "where tx_id = ? and task_id = ? and retry_count = ? and sub_task_id " + endSql, params);
         } catch (SQLException e) {
             e.printStackTrace();
         }
         if (rows != 1) throw new RuntimeException("更新数据失败: rows=" + rows);
     }
+
+
 
     @SneakyThrows
     public static void executeTransaction(Consumer<Connection> tx) {

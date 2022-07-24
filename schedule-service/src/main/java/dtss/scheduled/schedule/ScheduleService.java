@@ -28,16 +28,12 @@ public class ScheduleService {
         System.out.println("调度服务" + scheduledNodeId + "成功启动...");
     }
 
-
-
-
     private void listenTaskStatus() {
         //  每隔10s查库并更新任务状态, 实现任务的启动、关闭、以及任务状态的转换
         scheduledExecutorService
                 .scheduleAtFixedRate(this::run,
                         1, 10, TimeUnit.SECONDS);
     }
-
 
     public void run() {
         try {
@@ -77,7 +73,7 @@ public class ScheduleService {
         //将内存中的任务运行状态和数据库中状态进行对比，以驱动DAG流程的执行
         Utils.intersection(oldTaskIds, newTaskIds)            //逐个驱动
                 .stream().filter(taskId -> oldTaskMap.get(taskId).isRunning())
-                .forEach(taskId -> taskStateTransition(oldTaskMap.get(taskId), newTaskMap.get(taskId)));//任务状态转换，用于驱动DAG流程执行
+                .forEach(taskId -> handlerTaskStateTransitionEvent(oldTaskMap.get(taskId), newTaskMap.get(taskId)));//任务状态转换，用于驱动DAG流程执行
 
 
 //        日志部分
@@ -92,20 +88,32 @@ public class ScheduleService {
         System.out.println("当前启用的任务 -> " + runningTasks);
     }
 
-//    任务状态转换
-    private void taskStateTransition(ScheduleTask oldTask, ScheduleTask newTask) {
-        for (String taskId : oldTask.getSubTaskMap().keySet()) {
-            SubTask oldSubTask = oldTask.getSubTaskMap().get(taskId);
-            SubTask newSubTask = newTask.getSubTaskMap().get(taskId);
+//    处理任务状态转换
+    private void handlerTaskStateTransitionEvent(ScheduleTask oldTask, ScheduleTask newTask) {
+        boolean needWakeUp = false;
+        for (String subTaskId : oldTask.getSubTaskMap().keySet()) {
+            SubTask oldSubTask = oldTask.getSubTaskMap().get(subTaskId);
+            SubTask newSubTask = newTask.getSubTaskMap().get(subTaskId);
             if (!oldSubTask.isFinish() && oldSubTask.getStatus() != newSubTask.getStatus()) { //只判断未完成 且 状态发生了变化 任务
                 oldSubTask.setStatus(newSubTask.getStatus());//更新之
-                if (newSubTask.getStatus() == 0) { //其他的状态变化无需关心，只需要关心任务  运行->结束 的变化
-                    //某子任务驱动的所有子任务激活值加一
-                    oldTask.getSubTasksDrivenBy(oldSubTask.getSubTaskName())
-                            .forEach(subTask -> subTask.setActivationValue(subTask.getActivationValue() + 1));
-                    oldTask.wakeUp();//驱动DAG流程的执行,唤醒阻塞
+                switch (newSubTask.getStatus()) {   //捕捉 运行->结束 的变化
+                    case 0:   // 正常结束
+                        oldTask.getSubTasksDrivenBy(oldSubTask.getSubTaskName())    //某子任务驱动的所有子任务激活值加一
+                                .forEach(subTask -> subTask.setActivationValue(subTask.getActivationValue() + 1));
+                        needWakeUp = true;
+                        break;
+                    case -1: // 异常结束
+                        System.out.println("检测到子任务" + oldSubTask.getSubTaskName() + "异常结束，开始重试: " + oldSubTask.getRetryCount());
+                        oldSubTask.setRetryCount(oldSubTask.getRetryCount() + 1);    //开始重试
+                        needWakeUp = true;
+                        break;
+                    default:
+                        break;
                 }
             }
+        }
+        if (needWakeUp) {
+            oldTask.wakeUp();                                        //驱动DAG流程的执行,唤醒阻塞
         }
     }
 

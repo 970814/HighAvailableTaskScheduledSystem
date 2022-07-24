@@ -1,21 +1,20 @@
-package dtss.worker.workerservice.bean;
+package dtss.scheduled.bean;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+import lombok.SneakyThrows;
 
 @Data
-@NoArgsConstructor
 @AllArgsConstructor
-public class Result {
+@NoArgsConstructor
+public class Req {
     String txId;
     String taskPid;
     String subTaskName;
     int retryCount;
-    String endDatetime;
-    long costTime;
-    int exitCode;
-    String log;
+    String command;
 
 
 }

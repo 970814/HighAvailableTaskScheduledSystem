@@ -24,7 +24,8 @@ create table `sub_task`
     `activation_value` int           NOT NULL, -- 激活值
     `start_threshold`  int           NOT NULL, -- 启动阈值
     `status`           int           NOT NULL, -- 运行状态 结束0 等待1 运行2
-    `command`          varchar(8192) NOT NULL  -- 子任务的shell命令
+    `command`          varchar(8192) NOT NULL,  -- 子任务的shell命令
+    `retry_count`      int           NOT NULL  -- 重试次数
 );
 
 drop table execution_record;
@@ -35,10 +36,14 @@ create table execution_record
     `sub_task_id`    varchar(32) NULL,         -- 子任务id，如果为null，表示为主任务
     `start_datetime` varchar(32) DEFAULT NULL, -- 开始时间
     `end_datetime`   varchar(32) DEFAULT NULL, -- 结束时间
-    `cost_time`      int DEFAULT NULL,         -- 花费时间
+    `cost_time`      int         DEFAULT NULL, -- 花费时间
     `result`         varchar(32) DEFAULT NULL, -- 结果 运行/成功/失败
-    unique key `tx_task_sub_id` (`tx_id`, `task_id`, `sub_task_id`)
+    `retry_count`    int         NOT NULL,     -- 重试次数
+    `log`            text        DEFAULT NULL, -- 任务日志
+    unique key `tx_task_sub_id` (`tx_id`, `task_id`, `sub_task_id`, `retry_count`)
 );
+
+
 
 
 
@@ -51,7 +56,7 @@ where task_id='523003BB4B9D9E3CF2877B785E18B6E18DD6A60E98636FDDEAD75A895F049204'
 show tables;
 select * from schedule_task;
 select * from sub_task;
-select * from execution_record;
+select  log,sub_task_id, start_datetime, end_datetime, cost_time, result, tx_id, task_id from execution_record;
 select sub_task_id, start_datetime, end_datetime, cost_time, result, tx_id, task_id
 from execution_record
 where task_id='523003BB4B9D9E3CF2877B785E18B6E18DD6A60E98636FDDEAD75A895F049204';
@@ -82,8 +87,8 @@ delete  from sub_task where task_pid='A35D9BAD4367826BDFD7C3001D8ACDA8102A0373E7
 
 
 
-# truncate table schedule_task;
-# truncate table sub_task;
+truncate table schedule_task;
+truncate table sub_task;
 truncate table execution_record;
 
 
@@ -118,3 +123,5 @@ startThreshold
 status
 command
  */
+
+

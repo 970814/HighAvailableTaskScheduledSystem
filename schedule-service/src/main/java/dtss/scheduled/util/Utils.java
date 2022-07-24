@@ -8,6 +8,7 @@ import java.util.Date;
 import java.util.HashSet;
 import java.util.Set;
 import java.util.TimeZone;
+import java.util.concurrent.CountDownLatch;
 
 public class Utils {
 
@@ -47,6 +48,17 @@ public class Utils {
         return sdf.format(date);
     }
 
+    public static void main(String[] args) {
+        CountDownLatch latch = new CountDownLatch(3);
+        latch.countDown();
+        System.out.println(latch.getCount());
+        latch.countDown();
+        System.out.println(latch.getCount());
+        latch.countDown();
+        System.out.println(latch.getCount());
+        latch.countDown();
+        System.out.println(latch.getCount());
+    }
 
 
 

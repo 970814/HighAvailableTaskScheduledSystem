@@ -50,6 +50,7 @@ public class ServiceRegistrationClient {
 
                     }
                     first = false;
+                    //noinspection BusyWait
                     Thread.sleep(3 * 1000);
                 } catch (Throwable e) {
                     System.out.println("Exception -> " + e);
